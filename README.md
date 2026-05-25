@@ -1,8 +1,8 @@
-# 📱 ChatFix PWA - Cliente de WhatsApp con Corrección IA Local
+# 📱 Tapchat PWA - Cliente de WhatsApp con Corrección IA Local
 
 ## 📖 Descripción del Proyecto
 
-ChatFix es una plataforma de mensajería (PWA) independiente que emula una sesión de WhatsApp Web.
+Tapchat es una plataforma de mensajería (PWA) independiente que emula una sesión de WhatsApp Web.
 Su objetivo principal es ayudarte a enviar mensajes bien escritos mediante asistencia de una IA local.
 
 A diferencia del flujo estándar donde un script edita un mensaje ya enviado, esta aplicación web actúa como un paso intermedio: escribes tu mensaje, la IA local lo analiza y corrige, y la plataforma te permite elegir si enviar tu texto original o la versión corregida.
@@ -56,8 +56,8 @@ docker compose up --build
 
 Esto levanta:
 
-- `chatfix-backend` en `http://localhost:3005`
-- `chatfix-mongo` en `mongodb://localhost:27017`
+- `tapchat-backend` en `http://localhost:3005`
+- `tapchat-mongo` en `mongodb://localhost:27017`
 
 ### 3. Sesión permanente de WhatsApp
 
@@ -76,7 +76,7 @@ El backend usa `LocalAuth`, guardando sesión en un volumen Docker (`whatsapp_au
 En Docker Compose ya se inyectan:
 
 - `PORT=3005`
-- `MONGODB_URI=mongodb://mongo:27017/chatfix`
+- `MONGODB_URI=mongodb://mongo:27017/tapchat`
 - `LM_STUDIO_URL=http://host.docker.internal:1234`
 - `AI_PROVIDER=lmstudio` (o `cloudflare` usando `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_API_TOKEN`)
 - `MODEL_NAME=llama-3.1-8b-instruct`
@@ -111,7 +111,7 @@ docker compose logs -f mongo
 
 ## 🛡️ Referencia de la API (Publicación Externa)
 
-ChatFix expone un endpoint para publicar en canales o chats desde servicios externos.
+Tapchat expone un endpoint para publicar en canales o chats desde servicios externos.
 
 **Endpoint:** `POST /api/send`
 
@@ -133,7 +133,7 @@ Requiere el header `X-API-Key` o el parámetro `api_key` en la URL (si se defini
 ```bash
 curl -X POST http://localhost:3005/api/send \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: chatfix_secret_key_123" \
+  -H "X-API-Key: tapchat_secret_key_123" \
   -d '{
     "chatId": "1234567890@newsletter",
     "text": "🚀 Mensaje automático con imagen: https://ejemplo.com",

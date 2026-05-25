@@ -1,8 +1,8 @@
 {
-  "name": "chatfix-backend",
+  "name": "tapchat-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Backend API + WhatsApp bridge for ChatFix",
+  "description": "Backend API + WhatsApp bridge for Tapchat",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

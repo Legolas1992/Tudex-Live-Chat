@@ -231,7 +231,7 @@ app.use('/api', (req, res, next) => {
 
 // Root endpoint for connectivity check
 app.get('/', (req, res) => {
-  res.send('🚀 ChatFix Backend is running on port 3005!');
+  res.send('🚀 Tapchat Backend is running on port 3005!');
 });
 
 // Healthcheck/Auth verify endpoint
@@ -240,7 +240,7 @@ app.get('/api/check-auth', (req, res) => {
 });
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/chatfix')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tapchat')
   .then(async () => {
     console.log('✅ MongoDB connected');
     await ensureCanonicalProviderFields();
@@ -893,7 +893,7 @@ async function requestCorrectionWithModel(text, options = {}) {
     response_format: {
       type: 'json_schema',
       json_schema: {
-        name: 'chatfix_correction',
+        name: 'tapchat_correction',
         strict: true,
         schema: {
           type: 'object',

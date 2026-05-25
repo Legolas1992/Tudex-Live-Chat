@@ -1,4 +1,4 @@
-# Auditoría UX/UI y Plan de Mejora - ChatFix PWA
+# Auditoría UX/UI y Plan de Mejora - Tapchat PWA
 
 **Rol:** Senior UX/UI Auditor & Product Designer
 **Objetivo:** Analizar el repositorio y generar un plan de mejora de 30 puntos accionables basado en el código actual.

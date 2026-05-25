@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "ChatFix PWA",
-        short_name: "ChatFix",
+        name: "Tapchat PWA",
+        short_name: "Tapchat",
         description: "Mensajería PWA con IA",
         theme_color: "#0d1418",
         background_color: "#0d1418",

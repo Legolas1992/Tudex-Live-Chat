@@ -1,4 +1,4 @@
-const DB_NAME = "chatfix-cache";
+const DB_NAME = "tapchat-cache";
 const DB_VERSION = 1;
 const STORE_NAME = "kv";
 

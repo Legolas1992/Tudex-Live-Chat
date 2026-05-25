@@ -26,7 +26,7 @@ const defaultApiUrl = isLocal
   ? `${runtimeProtocol}//${runtimeHost}:3005`
   : `https://api-${runtimeHost.replace(/^api-/, "")}`;
 
-console.log("[ChatFix] API target:", defaultApiUrl);
+console.log("[Tapchat] API target:", defaultApiUrl);
 
 const API_URL = import.meta.env.VITE_API_URL || defaultApiUrl;
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || defaultApiUrl;
@@ -52,7 +52,7 @@ function parseApiItemsPayload(payload) {
 const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   let [resource, config] = args;
-  const key = localStorage.getItem("chatfix_api_key");
+  const key = localStorage.getItem("tapchat_api_key");
   
   if (key) {
     config = config || {};
@@ -72,7 +72,7 @@ window.fetch = async (...args) => {
   const response = await originalFetch(...args);
   if (response.status === 401) {
     console.warn("Auth failure for:", resource);
-    window.dispatchEvent(new Event('chatfix_auth_error'));
+    window.dispatchEvent(new Event('tapchat_auth_error'));
   }
   return response;
 };
@@ -163,7 +163,7 @@ function App() {
   const draftInputRef = useRef(null);
 
   const [apiAuthenticated, setApiAuthenticated] = useState(false);
-  const [inputApiKey, setInputApiKey] = useState(localStorage.getItem("chatfix_api_key") || "");
+  const [inputApiKey, setInputApiKey] = useState(localStorage.getItem("tapchat_api_key") || "");
   const [showApiKey, setShowApiKey] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [authError, setAuthError] = useState("");
@@ -221,7 +221,7 @@ function App() {
   const [loadingStatusArchive, setLoadingStatusArchive] = useState(false);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [pendingIncomingCount, setPendingIncomingCount] = useState(0);
-  const [draftsByChat, setDraftsByChat] = useState(() => { try { return JSON.parse(localStorage.getItem("chatfix_drafts") || "{}"); } catch (e) { return {}; } }); const draft = draftsByChat[selectedChatId] || ""; const setDraft = (val) => setDraftsByChat(prev => ({ ...prev, [selectedChatId]: val }));
+  const [draftsByChat, setDraftsByChat] = useState(() => { try { return JSON.parse(localStorage.getItem("tapchat_drafts") || "{}"); } catch (e) { return {}; } }); const draft = draftsByChat[selectedChatId] || ""; const setDraft = (val) => setDraftsByChat(prev => ({ ...prev, [selectedChatId]: val }));
   const [correctedDraft, setCorrectedDraft] = useState("");
   const debouncedDraftRef = useRef(null);
   const [replyTarget, setReplyTarget] = useState(null);
@@ -505,7 +505,7 @@ function App() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("chatfix_api_key");
+    localStorage.removeItem("tapchat_api_key");
     setApiAuthenticated(false);
     setSessionStatus("connecting");
     if (socketRef.current) {
@@ -525,13 +525,13 @@ function App() {
 
     const handlePwaUpdate = (e) => setPwaUpdateAvailable(() => e.detail.updateSW);
 
-    window.addEventListener('chatfix_auth_error', handleAuthError);
+    window.addEventListener('tapchat_auth_error', handleAuthError);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener("pwa_update_available", handlePwaUpdate);
 
     return () => {
-      window.removeEventListener('chatfix_auth_error', handleAuthError);
+      window.removeEventListener('tapchat_auth_error', handleAuthError);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener("pwa_update_available", handlePwaUpdate);
@@ -547,13 +547,13 @@ function App() {
         headers: { 'X-API-Key': key }
       });
       if (res.ok) {
-        localStorage.setItem("chatfix_api_key", key);
+        localStorage.setItem("tapchat_api_key", key);
         setApiAuthenticated(true);
       } else {
         setApiAuthenticated(false);
         setAuthError("API Key incorrecta. Por favor, verificá tus credenciales.");
         showNotice("Autenticación fallida con la clave provista.", "error");
-        localStorage.removeItem("chatfix_api_key");
+        localStorage.removeItem("tapchat_api_key");
         clearCache().catch(() => {});
       }
     } catch (e) {
@@ -595,7 +595,7 @@ function App() {
 
     const socket = io(SOCKET_URL, {
       transports: ["websocket"],
-      auth: { token: localStorage.getItem("chatfix_api_key") || "" },
+      auth: { token: localStorage.getItem("tapchat_api_key") || "" },
       reconnection: true,
       reconnectionAttempts: Infinity
     });
@@ -748,7 +748,7 @@ function App() {
   }, [filteredChats, selectedChatId]);
 
   useEffect(() => {
-    localStorage.setItem("chatfix_drafts", JSON.stringify(draftsByChat));
+    localStorage.setItem("tapchat_drafts", JSON.stringify(draftsByChat));
   }, [draftsByChat]);
 
   useEffect(() => {
@@ -1414,11 +1414,11 @@ function App() {
         </div>
         <main className="authScreen">
         <section className="authCard" aria-labelledby="apiKeyHeading">
-          <h1 id="apiKeyHeading">ChatFix API</h1>
+          <h1 id="apiKeyHeading">Tapchat API</h1>
           {authError && <div id="apiKeyError" role="alert" aria-live="assertive" className="notice error" style={{ marginBottom: '15px' }}>{authError}</div>}
 
           <div className="onboarding-wizard">
-            <p><strong>¡Bienvenido a ChatFix!</strong></p>
+            <p><strong>¡Bienvenido a Tapchat!</strong></p>
             <p>Para proteger tus conversaciones y conectar de forma segura con tu servidor (LM Studio, Cloudflare, o el proveedor), ingresa la clave de acceso API provista por tu administrador.</p>
           </div>
 
@@ -1491,7 +1491,7 @@ function App() {
         </div>
         <main className="authScreen">
         <section className="authCard" aria-live="polite" aria-labelledby="waAuthHeading">
-          <h1 id="waAuthHeading">ChatFix</h1>
+          <h1 id="waAuthHeading">Tapchat</h1>
           <h2>{authScreenLabel}</h2>
 
           {sessionStatus === "qr" && socketConnected && (
@@ -1499,7 +1499,7 @@ function App() {
               {qr ? (
                 <>
                   <div className="instructionList">
-                    <p>Para usar el proveedor en ChatFix:</p>
+                    <p>Para usar el proveedor en Tapchat:</p>
                     <ol>
                       <li>Abre la aplicación del proveedor en tu teléfono</li>
                       <li>Toca el menú (tres puntos) o "Configuración"</li>
@@ -1581,7 +1581,7 @@ function App() {
       </div>
       {pwaUpdateAvailable && (
         <div className="updateBanner" role="alert" aria-live="assertive">
-          <span aria-hidden="true">🎁</span> Hay una nueva versión de ChatFix disponible.
+          <span aria-hidden="true">🎁</span> Hay una nueva versión de Tapchat disponible.
           <button className="primary" onClick={() => pwaUpdateAvailable(true)}>Actualizar ahora</button>
           <button className="secondary" onClick={() => setPwaUpdateAvailable(null)}>Ignorar</button>
         </div>
