@@ -1,0 +1,68 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: chatfix-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: chatfix-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      MONGODB_URI: mongodb://mongo:27017/chatfix
+      LM_STUDIO_URL: ${LM_STUDIO_URL:-http://host.docker.internal:1234}
+      MODEL_NAME: ${MODEL_NAME:-llama-3.1-8b-instruct}
+      AI_PROVIDER: ${AI_PROVIDER:-lmstudio}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_AI_BASE_URL: ${CLOUDFLARE_AI_BASE_URL:-}
+      AI_TEMPERATURE: ${AI_TEMPERATURE:-0.7}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-180}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-15000}
+      STATUS_POLL_INTERVAL_MS: ${STATUS_POLL_INTERVAL_MS:-60000}
+      AI_SYSTEM_PROMPT: ${AI_SYSTEM_PROMPT:-"Eres un corrector experto de mensajes de WhatsApp en español. Corrige ortografía, gramática y claridad manteniendo el tono y la intención original. No incluyas razonamiento interno ni etiquetas como <think>."}
+      AI_USER_PROMPT_TEMPLATE: ${AI_USER_PROMPT_TEMPLATE:-"Corregí este texto y devolvé solo la versión final corregida, sin explicación:\n\n{{text}}"}
+      API_KEY: ${API_KEY:-}
+      CHATS_CACHE_TTL_MS: ${CHATS_CACHE_TTL_MS:-5000}
+      MESSAGES_CACHE_TTL_MS: ${MESSAGES_CACHE_TTL_MS:-5000}
+      AVATAR_TTL_MS: ${AVATAR_TTL_MS:-600000}
+      AVATAR_FETCH_LIMIT: ${AVATAR_FETCH_LIMIT:-40}
+      AVATAR_FETCH_TIMEOUT_MS: ${AVATAR_FETCH_TIMEOUT_MS:-7000}
+      DEFAULT_ACCOUNT_ID: ${DEFAULT_ACCOUNT_ID:-default}
+      CHROME_EXECUTABLE_PATH: ${CHROME_EXECUTABLE_PATH:-/usr/bin/google-chrome-stable}
+    volumes:
+      - whatsapp_auth:/app/.wwebjs_auth
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -H \"X-API-Key: $${API_KEY:-}\" http://localhost:3005/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: chatfix-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  mongo_data:
+  whatsapp_auth:
