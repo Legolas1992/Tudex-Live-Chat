@@ -44,6 +44,8 @@ services:
       AVATAR_FETCH_TIMEOUT_MS: ${AVATAR_FETCH_TIMEOUT_MS:-7000}
       DEFAULT_ACCOUNT_ID: ${DEFAULT_ACCOUNT_ID:-default}
       CHROME_EXECUTABLE_PATH: ${CHROME_EXECUTABLE_PATH:-/usr/bin/chromium}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - whatsapp_auth:/app/.wwebjs_auth
     healthcheck:

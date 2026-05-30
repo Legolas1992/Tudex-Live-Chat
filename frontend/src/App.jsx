@@ -3260,56 +3260,37 @@ function App() {
                 </div>
               ) : null}
 
-              {/* Removed redundant syncingChat badge here to prevent layout shift; it's already in the header */}
-              <div className={`composerInputWrapper ${correctedDraft ? "hasCorrection" : ""} ${correcting || correctingAndSending ? "isCorrecting" : ""}`}>
-                {correctedDraft && <span className="composerOriginalLabel">Tu borrador original (modificarlo descartará la sugerencia IA)</span>}
-                <textarea
-                  ref={draftInputRef}
-                  value={draft}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDraft(val);
-                    if (correctedDraft) setCorrectedDraft("");
-
-                    if (debouncedDraftRef.current) clearTimeout(debouncedDraftRef.current);
-                    if (val.trim().length > 5) {
-                      debouncedDraftRef.current = setTimeout(() => {
-                        // Live correction trigger could go here (if requested to auto-correct)
-                      }, 1000);
-                    }
-                  }}
-                  onKeyDown={handleDraftKeyDown}
-                  placeholder={correctedDraft ? "Escribí un mensaje... (Enter: enviar versión IA | Ctrl+Enter: enviar original)" : "Escribí un mensaje... (Enter: mejorar y enviar | Ctrl+Enter: enviar original sin revisar)"}
-                  rows={3}
-                  aria-label="Mensaje"
-                  disabled={sending || correcting || correctingAndSending}
-                />
-              </div>
-
+              {/* Suggestions displayed above the input pill exactly like a preview card */}
               {correctedDraft ? (
-                <div className="correctedPreview">
-                  <div className="correctedHeader">
-                    <p className="correctedLabel">✨ Versión sugerida por IA</p>
-                    <div className="correctedHeaderActions">
-                      <button
-                        className="iconButton"
-                        onClick={() => setCorrectedDraft("")}
-                        aria-label="Descartar sugerencia"
-                        title="Descartar"
-                      >
-                        ❌
-                      </button>
-                    </div>
+                <div className="correctedPreview" style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  marginBottom: '12px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+                }}>
+                  <div className="correctedHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <p className="correctedLabel" style={{ margin: 0, fontWeight: '700', color: 'var(--accent-primary)', fontSize: '0.85rem' }}>✨ Versión sugerida por IA</p>
+                    <button
+                      className="iconButton"
+                      onClick={() => setCorrectedDraft("")}
+                      style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}
+                      title="Descartar"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <p className="correctedText">{correctedDraft}</p>
+                  <p className="correctedText" style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: '#f8fafc', lineHeight: '1.4' }}>{correctedDraft}</p>
 
-                  <div className="correctedActions">
+                  <div className="correctedActions" style={{ display: 'flex', gap: '8px' }}>
                     <button
                       className="primary sendCorrectedBtn"
-                      aria-label="Enviar la sugerencia de IA"
                       onClick={() => sendMessage(correctedDraft, "corrected")}
+                      style={{ flex: 1, padding: '8px 12px', borderRadius: '10px', fontWeight: '600' }}
                     >
-                      ✨ Enviar versión IA
+                      🚀 Enviar versión IA
                     </button>
                     <button
                       className="secondary useCorrectedBtn"
@@ -3317,16 +3298,137 @@ function App() {
                         setDraft(correctedDraft);
                         setCorrectedDraft("");
                       }}
-                      aria-label="Usar sugerencia en el cuadro principal para editar"
+                      style={{ padding: '8px 12px', borderRadius: '10px' }}
                     >
-                      ✏️ <span className="hideOnMobile">Usar y editar</span>
+                      ✏️ Usar y editar
                     </button>
                   </div>
                 </div>
               ) : null}
 
+              {/* WhatsApp-style Composer Row */}
+              <div className="whatsappComposerRow" style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                gap: '12px',
+                width: '100%'
+              }}>
+                {/* Rounded Pill */}
+                <div className={`whatsappInputPill ${correcting || correctingAndSending ? "isCorrecting" : ""}`} style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '24px',
+                  padding: '4px 16px',
+                  gap: '8px',
+                  minHeight: '48px',
+                  transition: 'all 0.3s ease',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)'
+                }}>
+                  {/* Emoji Icon inside Pill */}
+                  <span style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }} title="Emojis">
+                    😊
+                  </span>
+
+                  {/* Textarea inside Pill */}
+                  <textarea
+                    ref={draftInputRef}
+                    value={draft}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDraft(val);
+                      if (correctedDraft) setCorrectedDraft("");
+
+                      if (debouncedDraftRef.current) clearTimeout(debouncedDraftRef.current);
+                      if (val.trim().length > 5) {
+                        debouncedDraftRef.current = setTimeout(() => {
+                          // Live correction trigger could go here
+                        }, 1000);
+                      }
+                    }}
+                    onKeyDown={handleDraftKeyDown}
+                    placeholder={correctedDraft ? "Escribe un mensaje... (Enter: enviar versión IA)" : "Escribe un mensaje... (Enter: enviar original | botón ✨ para mejorar)"}
+                    rows={1}
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      padding: '8px 0',
+                      resize: 'none',
+                      minHeight: '24px',
+                      maxHeight: '120px',
+                      overflowY: 'auto',
+                      lineHeight: '1.4'
+                    }}
+                    disabled={sending || correcting || correctingAndSending}
+                  />
+
+                  {/* IA Magic button inside Pill */}
+                  <button
+                    type="button"
+                    onClick={correctDraft}
+                    disabled={!draft.trim() || correcting || correctingAndSending}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: draft.trim() ? 'var(--accent-primary)' : '#64748b',
+                      fontSize: '1.25rem',
+                      cursor: draft.trim() ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                      transition: 'all 0.2s ease',
+                      transform: draft.trim() ? 'scale(1.15)' : 'none'
+                    }}
+                    title="Mejorar redacción con IA (Ver sugerencia)"
+                  >
+                    ✨
+                  </button>
+                </div>
+
+                {/* Circular Send Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (draft.trim()) {
+                      sendMessage(draft, "original");
+                    }
+                  }}
+                  disabled={!draft.trim() || sending || correcting || correctingAndSending}
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    background: draft.trim() ? 'var(--accent-gradient)' : 'rgba(255, 255, 255, 0.05)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: draft.trim() ? 'pointer' : 'not-allowed',
+                    color: '#fff',
+                    fontSize: '1.2rem',
+                    boxShadow: draft.trim() ? '0 4px 12px var(--accent-glow)' : 'none',
+                    transition: 'all 0.25s ease',
+                    flexShrink: 0
+                  }}
+                  title="Enviar original"
+                >
+                  ✈️
+                </button>
+              </div>
+
+              {/* Progress/Activity state indicators */}
               {(sending || correcting || correctingAndSending || syncingChat) ? (
-                <div className={`activityStateBadge ${correctingAndSending ? "processingAndSending" : correcting ? "processing" : sending ? "sending" : "syncing"}`}>
+                <div 
+                  className={`activityStateBadge ${correctingAndSending ? "processingAndSending" : correcting ? "processing" : sending ? "sending" : "syncing"}`}
+                  style={{ marginTop: '12px' }}
+                >
                   {(syncingChat && !sending && !correcting && !correctingAndSending) ? (
                     <>
                       <span className="syncSpinner" aria-hidden="true" />
@@ -3337,48 +3439,6 @@ function App() {
                       <span className="spinner" aria-hidden="true" />
                       <span>{correctingAndSending ? "✨ Mejorando y enviando..." : correcting ? "✨ Mejorando redacción..." : sendingType === 'corrected' || sendingType === 'correctedAndSending' ? "✨ Enviando versión IA..." : "📤 Enviando mensaje original..."}</span>
                     </>
-                  )}
-                </div>
-              ) : null}
-
-              {!(sending || correcting || correctingAndSending) ? (
-                <div className="composerActions">
-                  {!correctedDraft ? (
-                    <>
-                      <button
-                        className="primary"
-                        aria-label="Mejorar redacción con IA y enviar"
-                        onClick={correctAndSend}
-                        disabled={!draft.trim()}
-                      >
-                        🚀 <span className="hideOnMobile">Mejorar y enviar</span>
-                      </button>
-                      <button
-                        className="secondary"
-                        aria-label="Previsualizar corrección de IA sin enviar"
-                        onClick={correctDraft}
-                        disabled={!draft.trim()}
-                      >
-                        ✨ <span className="hideOnMobile">Ver sugerencia</span>
-                      </button>
-                      <button
-                        className="secondary plainSendBtn"
-                        aria-label="Enviar mensaje original sin revisar"
-                        onClick={() => sendMessage(draft, "original")}
-                        disabled={!draft.trim()}
-                      >
-                        📤 <span className="hideOnMobile">Enviar original</span>
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="secondary plainSendBtn"
-                      aria-label="Enviar el texto original, descartando la sugerencia"
-                      onClick={() => sendMessage(draft, "original")}
-                      disabled={!draft.trim()}
-                    >
-                      📤 <span className="hideOnMobile">Descartar IA y enviar original</span>
-                    </button>
                   )}
                 </div>
               ) : null}
