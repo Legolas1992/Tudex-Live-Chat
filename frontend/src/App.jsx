@@ -299,6 +299,12 @@ function App() {
   }, [activeStoryIndex, followedStories.length]);
 
   useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
     if (currentUser) {
       setUserBioInput(currentUser.bio || "¡Hola! Estoy usando Tapchat.");
       setUserAvatarColorInput(currentUser.avatarColor || "hsl(200, 70%, 40%)");
@@ -724,18 +730,46 @@ function App() {
   function mergeLiveMessage(msg) {
     if (!msg?.chatId) return;
     const normalized = { ...msg, _uiId: messageId(msg) };
-    if (!msg.fromMe && selectedChatIdRef.current === msg.chatId) {
-      markChatAsRead(msg.chatId);
-    } else if (!msg.fromMe && selectedChatIdRef.current !== msg.chatId) {
-      setNotifications(prev => [
-        {
-          id: Date.now(),
-          type: 'message',
-          text: `Mensaje de ${msg.from === 'ai_assistant' ? 'AI Companion' : (msg.from || 'Usuario')}: "${msg.body.slice(0, 40)}${msg.body.length > 40 ? '...' : ''}"`,
-          time: 'Ahora'
-        },
-        ...prev
-      ]);
+    
+    const isCurrentChat = selectedChatIdRef.current === msg.chatId;
+    const isAppBackgrounded = document.hidden;
+
+    if (!msg.fromMe) {
+      const senderName = msg.from === 'ai_assistant' ? 'AI Companion' : (msg.from || 'Usuario');
+      const previewText = msg.body ? (msg.body.length > 50 ? `${msg.body.slice(0, 50)}...` : msg.body) : 'Nuevo archivo recibido';
+
+      if (isCurrentChat) {
+        markChatAsRead(msg.chatId);
+      } else {
+        // 1. In-app toast notification
+        showNotice(`💬 ${senderName}: ${previewText}`, "info");
+
+        // 2. Add to Notifications history
+        setNotifications(prev => [
+          {
+            id: Date.now(),
+            type: 'message',
+            text: `Mensaje de ${senderName}: "${previewText}"`,
+            time: 'Ahora'
+          },
+          ...prev
+        ]);
+      }
+
+      // 3. Desktop/OS Browser Notification (if backgrounded or not in active chat)
+      if (isAppBackgrounded || !isCurrentChat) {
+        if ("Notification" in window && Notification.permission === "granted") {
+          try {
+            new Notification(`Tapchat - ${senderName}`, {
+              body: previewText,
+              icon: 'https://cdn-icons-png.flaticon.com/512/3616/3616223.png',
+              tag: msg.chatId
+            });
+          } catch (e) {
+            console.error("Error creating browser notification:", e);
+          }
+        }
+      }
     }
     setChats((prev) => {
       const exists = prev.find((chat) => chat.id === msg.chatId);
