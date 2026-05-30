@@ -275,6 +275,29 @@ function App() {
     { id: 3, type: 'warning', text: 'El servidor de IA está listo para recibir tus mensajes.', time: 'Hace 5 min' }
   ]);
 
+  // States for Proximity Grid, Snapchat-style Public Wall, and Followed Stories
+  const [proximityUsers, setProximityUsers] = useState([]);
+  const [loadingProximity, setLoadingProximity] = useState(false);
+  const [publicStatuses, setPublicStatuses] = useState([]);
+  const [loadingPublicStatuses, setLoadingPublicStatuses] = useState(false);
+  const [followedStories, setFollowedStories] = useState([]);
+  const [loadingStories, setLoadingStories] = useState(false);
+  const [newPublicStatusBody, setNewPublicStatusBody] = useState("");
+  const [publishingStatus, setPublishingStatus] = useState(false);
+  const [activeStoryIndex, setActiveStoryIndex] = useState(null);
+
+  useEffect(() => {
+    if (activeStoryIndex === null) return;
+    const timer = setTimeout(() => {
+      if (activeStoryIndex < followedStories.length - 1) {
+        setActiveStoryIndex(activeStoryIndex + 1);
+      } else {
+        setActiveStoryIndex(null);
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [activeStoryIndex, followedStories.length]);
+
   useEffect(() => {
     if (currentUser) {
       setUserBioInput(currentUser.bio || "¡Hola! Estoy usando Tapchat.");
@@ -317,6 +340,131 @@ function App() {
       fetchAiModels();
     }
   };
+
+  async function loadProximityUsers() {
+    setLoadingProximity(true);
+    try {
+      const res = await fetch(`${API_URL}/api/users/proximity`);
+      if (res.ok) {
+        const data = await res.json();
+        setProximityUsers(data);
+      }
+    } catch (err) {
+      console.error("Error loading proximity users:", err);
+    } finally {
+      setLoadingProximity(false);
+    }
+  }
+
+  async function toggleFollowUser(userId, isFollowed) {
+    try {
+      const endpoint = isFollowed ? 'unfollow' : 'follow';
+      const res = await fetch(`${API_URL}/api/users/${userId}/${endpoint}`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProximityUsers(prev => prev.map(u => u._id === userId ? { ...u, isFollowed: !isFollowed } : u));
+        showNotice(isFollowed ? "Dejaste de seguir al usuario." : "¡Ahora sigues a este usuario!", "success");
+        loadFollowedStories();
+      }
+    } catch (err) {
+      console.error("Error toggling follow:", err);
+    }
+  }
+
+  async function loadPublicStatuses() {
+    setLoadingPublicStatuses(true);
+    try {
+      const res = await fetch(`${API_URL}/api/public-statuses`);
+      if (res.ok) {
+        const data = await res.json();
+        setPublicStatuses(data);
+      }
+    } catch (err) {
+      console.error("Error loading public statuses:", err);
+    } finally {
+      setLoadingPublicStatuses(false);
+    }
+  }
+
+  async function publishPublicStatus() {
+    if (!newPublicStatusBody.trim()) return;
+    setPublishingStatus(true);
+    try {
+      const bgImages = [
+        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1433832597026-488b418f2bd3?auto=format&fit=crop&w=400&q=80"
+      ];
+      const randomBg = bgImages[Math.floor(Math.random() * bgImages.length)];
+
+      const res = await fetch(`${API_URL}/api/public-statuses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          body: newPublicStatusBody,
+          mediaUrl: randomBg,
+          mediaType: "image"
+        })
+      });
+      if (res.ok) {
+        setNewPublicStatusBody("");
+        showNotice("¡Estado publicado en el muro!", "success");
+        loadPublicStatuses();
+      }
+    } catch (err) {
+      console.error("Error publishing status:", err);
+      showNotice("Error al publicar estado.", "error");
+    } finally {
+      setPublishingStatus(false);
+    }
+  }
+
+  async function likePublicStatus(statusId) {
+    try {
+      const res = await fetch(`${API_URL}/api/public-statuses/${statusId}/like`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPublicStatuses(prev => prev.map(s => s._id === statusId ? { ...s, likesCount: data.likesCount, isLiked: data.isLiked } : s));
+      }
+    } catch (err) {
+      console.error("Error liking status:", err);
+    }
+  }
+
+  async function viewPublicStatus(statusId) {
+    try {
+      const res = await fetch(`${API_URL}/api/public-statuses/${statusId}/view`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPublicStatuses(prev => prev.map(s => s._id === statusId ? { ...s, viewsCount: data.viewsCount } : s));
+      }
+    } catch (err) {
+      console.error("Error viewing status:", err);
+    }
+  }
+
+  async function loadFollowedStories() {
+    setLoadingStories(true);
+    try {
+      const res = await fetch(`${API_URL}/api/followed-statuses`);
+      if (res.ok) {
+        const data = await res.json();
+        setFollowedStories(data);
+      }
+    } catch (err) {
+      console.error("Error loading followed stories:", err);
+    } finally {
+      setLoadingStories(false);
+    }
+  }
 
   async function loadDirectoryUsers(query = "") {
     setSearchingUsers(true);
@@ -369,6 +517,24 @@ function App() {
       return haystack.includes(needle);
     });
   }, [chatSearch, statusArchiveItems]);
+
+  const filteredProximityUsers = useMemo(() => {
+    const needle = chatSearch.trim().toLowerCase();
+    if (!needle) return proximityUsers;
+    return proximityUsers.filter((u) => {
+      const label = `${u.username || ""} ${u.bio || ""}`.toLowerCase();
+      return label.includes(needle);
+    });
+  }, [chatSearch, proximityUsers]);
+
+  const filteredPublicStatuses = useMemo(() => {
+    const needle = chatSearch.trim().toLowerCase();
+    if (!needle) return publicStatuses;
+    return publicStatuses.filter((s) => {
+      const label = `${s.username || ""} ${s.body || ""}`.toLowerCase();
+      return label.includes(needle);
+    });
+  }, [chatSearch, publicStatuses]);
 
   const connectionLabel = useMemo(() => {
     if (!socketConnected) return "Desconectado del servidor (WebSocket)";
@@ -876,6 +1042,16 @@ function App() {
   }, [draftsByChat]);
 
   useEffect(() => {
+    if (!apiAuthenticated) return;
+    if (viewMode === "discover") {
+      loadProximityUsers();
+      loadFollowedStories();
+    } else if (viewMode === "muro") {
+      loadPublicStatuses();
+    }
+  }, [viewMode, apiAuthenticated]);
+
+  useEffect(() => {
     if (!Array.isArray(chats) || chats.length === 0) return;
     setCachedChats("local", currentUser?.id || DEFAULT_ACCOUNT_ID, chats).catch(() => {});
   }, [chats]);
@@ -1056,6 +1232,9 @@ function App() {
 
       const url = new URL(`${API_URL}/api/chats`);
       url.searchParams.set("provider", "local");
+      if (currentUser?.id) {
+        url.searchParams.set("accountId", currentUser.id);
+      }
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error("No se pudieron cargar los chats.");
 
@@ -1133,6 +1312,9 @@ function App() {
       const provider = chatId === 'ai_assistant' ? 'local' : (chat?.provider || 'local');
       const url = new URL(`${API_URL}/api/chats/${encodeURIComponent(chatId)}/messages`);
       url.searchParams.set("provider", provider);
+      if (currentUser?.id) {
+        url.searchParams.set("accountId", currentUser.id);
+      }
       const res = await fetch(url.toString());
       if (!res.ok) throw new Error("No se pudieron cargar los mensajes.");
       const payload = await res.json();
@@ -2010,7 +2192,72 @@ function App() {
         </div>
 
         <div className="chatList">
-          {viewMode === "statuses" ? filteredStatusArchive.map((item) => (
+          {/* Followed Stories Circular Bar */}
+          {viewMode === "chats" && followedStories.length > 0 && (
+            <div className="storiesBar" style={{
+              display: 'flex',
+              gap: '15px',
+              padding: '10px 15px',
+              overflowX: 'auto',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.02)',
+              borderRadius: '16px',
+              marginBottom: '10px',
+              scrollbarWidth: 'none' // hides scrollbar on Firefox
+            }}>
+              {followedStories.map((story, idx) => (
+                <button
+                  key={story._id}
+                  onClick={() => {
+                    viewPublicStatus(story._id); // Mark as viewed on backend
+                    setActiveStoryIndex(idx);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  <div style={{
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    padding: '3px',
+                    background: 'linear-gradient(135deg, #ff6f24 0%, #7c3aed 100%)', // Active story ring!
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <div style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '50%',
+                      background: getAvatarGradient(story.avatarColor || story.userId),
+                      border: '2px solid #0d1418',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '700',
+                      color: '#fff',
+                      fontSize: '0.85rem'
+                    }}>
+                      {story.username.slice(0, 2).toUpperCase()}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#ccc', maxWidth: '55px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {story.username}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {viewMode === "statuses" && filteredStatusArchive.map((item) => (
             <button
               key={item._id || item.id || item.providerStatusMessageId}
               className="chatItem statusArchiveSidebarItem"
@@ -2036,7 +2283,289 @@ function App() {
                 <div className="chatMeta">{item.description || "Estado sin descripción"}</div>
               </div>
             </button>
-          )) : filteredChats.map((chat) => (
+          ))}
+
+          {viewMode === "discover" && (
+            loadingProximity ? (
+              <p className="helper">Cargando usuarios cercanos...</p>
+            ) : filteredProximityUsers.length === 0 ? (
+              <p className="helper">No se encontraron usuarios en la zona.</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', padding: '10px 5px' }}>
+                {filteredProximityUsers.map((user) => (
+                  <div
+                    key={user._id}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '18px',
+                      padding: '14px',
+                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+                      position: 'relative'
+                    }}
+                  >
+                    {/* Status Dot */}
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: user.status === 'online' ? 'var(--success)' : '#64748b',
+                        boxShadow: `0 0 8px ${user.status === 'online' ? 'var(--success)' : '#64748b'}`
+                      }}
+                    />
+                    {/* Profile Avatar */}
+                    <div
+                      style={{
+                        width: '54px',
+                        height: '54px',
+                        borderRadius: '50%',
+                        background: getAvatarGradient(user.avatarColor || user._id),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: '700',
+                        color: '#fff',
+                        fontSize: '1.2rem',
+                        border: '2px solid rgba(255, 255, 255, 0.2)'
+                      }}
+                    >
+                      {user.username.slice(0, 2).toUpperCase()}
+                    </div>
+                    {/* Name & Bio */}
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#fff', fontSize: '0.9rem' }}>{user.username}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                        {user.bio || '¡Hola! Estoy usando Tapchat.'}
+                      </div>
+                    </div>
+                    {/* Distance Badge */}
+                    <span style={{
+                      fontSize: '0.7rem',
+                      padding: '2px 8px',
+                      borderRadius: '20px',
+                      background: 'rgba(255, 111, 36, 0.1)',
+                      color: 'var(--accent-primary)',
+                      border: '1px solid rgba(255, 111, 36, 0.2)',
+                      fontWeight: '600'
+                    }}>
+                      📍 a {user.distanceMeters ? (user.distanceMeters < 1000 ? `${user.distanceMeters} m` : `${(user.distanceMeters/1000).toFixed(1)} km`) : '150 m'}
+                    </span>
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '4px' }}>
+                      <button
+                        onClick={() => {
+                          const localChat = {
+                            id: user._id,
+                            name: user.username,
+                            provider: 'local',
+                            accountId: currentUser?.id || 'default',
+                            timestamp: Math.floor(Date.now() / 1000),
+                            unreadCount: 0,
+                            isGroup: false,
+                            avatarColor: user.avatarColor || 'hsl(180, 50%, 40%)'
+                          };
+
+                          setChats(prev => {
+                            if (prev.some(c => c.id === user._id)) return prev;
+                            return [localChat, ...prev];
+                          });
+
+                          setSelectedChatId(user._id);
+                          selectedChatIdRef.current = user._id;
+                          setViewMode("chats");
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '6px',
+                          borderRadius: '10px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+                          color: '#fff',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Chat
+                      </button>
+                      <button
+                        onClick={() => toggleFollowUser(user._id, user.isFollowed)}
+                        style={{
+                          flex: 1,
+                          padding: '6px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          background: user.isFollowed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                          color: user.isFollowed ? '#a855f7' : '#ccc',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {user.isFollowed ? 'Seguido' : 'Seguir'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {viewMode === "muro" && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '5px' }}>
+              {/* Post Composer Card */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '18px',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <textarea
+                  value={newPublicStatusBody}
+                  onChange={(e) => setNewPublicStatusBody(e.target.value)}
+                  placeholder="Comparte algo efímero con el mundo... (Dura 24 horas)"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.15)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '12px',
+                    padding: '10px',
+                    color: '#fff',
+                    fontSize: '0.85rem',
+                    resize: 'none',
+                    outline: 'none'
+                  }}
+                  rows={2}
+                />
+                <button
+                  onClick={publishPublicStatus}
+                  disabled={publishingStatus || !newPublicStatusBody.trim()}
+                  style={{
+                    background: 'linear-gradient(135deg, #ff6f24 0%, #7c3aed 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {publishingStatus ? 'Publicando...' : '📢 Publicar en Muro'}
+                </button>
+              </div>
+
+              {/* Status Wall Feed */}
+              {loadingPublicStatuses ? (
+                <p className="helper">Cargando publicaciones efímeras...</p>
+              ) : filteredPublicStatuses.length === 0 ? (
+                <p className="helper">Aún no hay publicaciones en el muro. ¡Sé el primero!</p>
+              ) : (
+                filteredPublicStatuses.map((status) => (
+                  <div
+                    key={status._id}
+                    onMouseEnter={() => viewPublicStatus(status._id)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '20px',
+                      overflow: 'hidden',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)'
+                    }}
+                  >
+                    {/* Media Header (Card Background styling) */}
+                    <div style={{
+                      height: '140px',
+                      background: status.mediaUrl ? `url(${status.mediaUrl}) center/cover no-repeat` : 'linear-gradient(135deg, #1f2c33 0%, #0d1418 100%)',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      padding: '12px'
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '0',
+                        left: '0',
+                        right: '0',
+                        bottom: '0',
+                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%)',
+                        zIndex: 1
+                      }} />
+                      {/* Publisher Details */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', zIndex: 2 }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: getAvatarGradient(status.avatarColor || status.userId),
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: '700',
+                          color: '#fff',
+                          fontSize: '0.75rem',
+                          border: '1px solid rgba(255,255,255,0.3)'
+                        }}>
+                          {status.username.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: '600', color: '#fff', fontSize: '0.85rem' }}>{status.username}</div>
+                          <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)' }}>📍 a {status.distanceMeters ? (status.distanceMeters < 1000 ? `${status.distanceMeters} m` : `${(status.distanceMeters/1000).toFixed(1)} km`) : '150 m'}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Body Text */}
+                    <div style={{ padding: '12px', background: 'rgba(13, 20, 24, 0.4)' }}>
+                      <p style={{ fontSize: '0.85rem', color: '#fff', margin: '0 0 10px 0', lineHeight: '1.4' }}>
+                        {status.body}
+                      </p>
+                      {/* Footer Actions */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
+                        <button
+                          onClick={() => likePublicStatus(status._id)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: status.isLiked ? '#ff5252' : '#ccc',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: '600'
+                          }}
+                        >
+                          {status.isLiked ? '❤️' : '🤍'} {status.likesCount || 0}
+                        </button>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          👁️ {status.viewsCount || 0} vistas
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {viewMode === "chats" && filteredChats.map((chat) => (
             <button
               key={chat.id}
               aria-label={`Chat con ${chat.name || chat.id}`}
@@ -2066,6 +2595,43 @@ function App() {
                   <div className="chatTopMeta">
                     {chat.timestamp ? <time className="chatTime">{formatChatTime(chat.timestamp)}</time> : null}
                     {chat.isGroup ? <span className="chatKindBadge">Grupo</span> : null}
+                    {(() => {
+                      const chatMsgs = messagesByChat[chat.id] || [];
+                      const lastMsg = chatMsgs.length > 0 ? chatMsgs[chatMsgs.length - 1] : null;
+                      if (!lastMsg) return null;
+                      const text = String(lastMsg.body || '').toLowerCase();
+                      const positive = ['bien', 'feliz', 'buen', 'genial', 'excelente', 'gracias', 'jaja', 'súper', 'super', ':)'];
+                      const negative = ['mal', 'triste', 'enojado', 'problema', 'tarde', 'perdón', 'perdon', 'fallo', 'error', ':('];
+                      let score = 0;
+                      positive.forEach(w => { if (text.includes(w)) score += 1; });
+                      negative.forEach(w => { if (text.includes(w)) score -= 1; });
+                      
+                      let sentiment = null;
+                      if (score > 0) sentiment = { emoji: "😊", color: "#10b981", label: "Positivo" };
+                      else if (score < 0) sentiment = { emoji: "😕", color: "#f43f5e", label: "Negativo" };
+                      
+                      if (!sentiment) return null;
+                      return (
+                        <span 
+                          title={`Análisis de Sentimiento: ${sentiment.label}`} 
+                          style={{
+                            fontSize: '11px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            background: `${sentiment.color}20`,
+                            border: `1px solid ${sentiment.color}`,
+                            color: sentiment.color,
+                            marginLeft: '4px'
+                          }}
+                        >
+                          {sentiment.emoji}
+                        </span>
+                      );
+                    })()}
                     {chat.unreadCount > 0 ? (
                       <span className="unreadBadge">{chat.unreadCount}</span>
                     ) : null}
@@ -2079,11 +2645,14 @@ function App() {
               </div>
             </button>
           ))}
+
           {viewMode === "statuses" && filteredStatusArchive.length === 0 ? (
             <p className="helper">{loadingStatusArchive ? "Cargando estados..." : "No hay estados archivados."}</p>
           ) : null}
           {viewMode === "chats" && filteredChats.length === 0 ? <p className="helper">No hay chats.</p> : null}
-          
+          {viewMode === "discover" && filteredProximityUsers.length === 0 ? <p className="helper">No hay usuarios cercanos.</p> : null}
+          {viewMode === "muro" && filteredPublicStatuses.length === 0 ? <p className="helper">No hay estados públicos.</p> : null}
+
           {viewMode === "notifications" && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px 0' }}>
               {notifications.length === 0 ? (
@@ -2137,7 +2706,7 @@ function App() {
           display: 'flex',
           background: 'rgba(13, 20, 24, 0.95)',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          padding: '10px 4px',
+          padding: '10px 2px',
           justifyContent: 'space-around',
           alignItems: 'center'
         }}>
@@ -2158,13 +2727,13 @@ function App() {
               alignItems: 'center',
               gap: '4px',
               cursor: 'pointer',
-              fontSize: '0.75rem',
+              fontSize: '0.7rem',
               fontWeight: viewMode === "statuses" ? '700' : '500',
               transition: 'all 0.2s ease',
               textShadow: viewMode === "statuses" ? '0 0 10px rgba(255, 111, 36, 0.3)' : 'none'
             }}
           >
-            <span style={{ fontSize: '1.2rem' }}>⭕</span>
+            <span style={{ fontSize: '1.1rem' }}>⭕</span>
             Estados
           </button>
           
@@ -2181,14 +2750,68 @@ function App() {
               alignItems: 'center',
               gap: '4px',
               cursor: 'pointer',
-              fontSize: '0.75rem',
+              fontSize: '0.7rem',
               fontWeight: viewMode === "chats" ? '700' : '500',
               transition: 'all 0.2s ease',
               textShadow: viewMode === "chats" ? '0 0 10px rgba(255, 111, 36, 0.3)' : 'none'
             }}
           >
-            <span style={{ fontSize: '1.2rem' }}>💬</span>
+            <span style={{ fontSize: '1.1rem' }}>💬</span>
             Chats
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("discover");
+              setSelectedChatId("");
+              loadProximityUsers();
+            }}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              color: viewMode === "discover" ? '#ff6f24' : 'var(--text-muted)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+              fontSize: '0.7rem',
+              fontWeight: viewMode === "discover" ? '700' : '500',
+              transition: 'all 0.2s ease',
+              textShadow: viewMode === "discover" ? '0 0 10px rgba(255, 111, 36, 0.3)' : 'none'
+            }}
+          >
+            <span style={{ fontSize: '1.1rem' }}>👥</span>
+            Cercanos
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("muro");
+              setSelectedChatId("");
+              loadPublicStatuses();
+            }}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              color: viewMode === "muro" ? '#ff6f24' : 'var(--text-muted)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+              fontSize: '0.7rem',
+              fontWeight: viewMode === "muro" ? '700' : '500',
+              transition: 'all 0.2s ease',
+              textShadow: viewMode === "muro" ? '0 0 10px rgba(255, 111, 36, 0.3)' : 'none'
+            }}
+          >
+            <span style={{ fontSize: '1.1rem' }}>📢</span>
+            Muro
           </button>
           
           <button
@@ -2207,26 +2830,26 @@ function App() {
               alignItems: 'center',
               gap: '4px',
               cursor: 'pointer',
-              fontSize: '0.75rem',
+              fontSize: '0.7rem',
               fontWeight: viewMode === "notifications" ? '700' : '500',
               transition: 'all 0.2s ease',
               textShadow: viewMode === "notifications" ? '0 0 10px rgba(255, 111, 36, 0.3)' : 'none',
               position: 'relative'
             }}
           >
-            <span style={{ fontSize: '1.2rem' }}>🔔</span>
-            Notificaciones
+            <span style={{ fontSize: '1.1rem' }}>🔔</span>
+            Alertas
             {notifications.length > 0 && (
               <span style={{
                 position: 'absolute',
-                top: '2px',
-                right: '25%',
+                top: '0px',
+                right: '20%',
                 background: '#ff6f24',
                 color: '#fff',
                 borderRadius: '50%',
-                width: '16px',
-                height: '16px',
-                fontSize: '10px',
+                width: '14px',
+                height: '14px',
+                fontSize: '9px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -2891,14 +3514,21 @@ function App() {
                           height: '26px',
                           borderRadius: '50%',
                           background: color,
-                          border: userAvatarColorInput === color ? '2px solid #fff' : '2px solid transparent',
+                          border: userAvatarColorInput === color ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
                           cursor: 'pointer',
-                          transition: 'transform 0.1s ease',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                          transition: 'all 0.15s ease',
+                          transform: userAvatarColorInput === color ? 'scale(1.2)' : 'none',
+                          boxShadow: userAvatarColorInput === color ? '0 0 10px rgba(255,255,255,0.6)' : '0 2px 4px rgba(0,0,0,0.15)',
                           padding: 0
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.15)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                        onMouseEnter={(e) => {
+                          if (userAvatarColorInput !== color) {
+                            e.currentTarget.style.transform = 'scale(1.15)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
+                        }}
                         title={color}
                       />
                     ))}
@@ -3393,6 +4023,228 @@ function App() {
           </div>
         </section>
       )}
+
+      {activeStoryIndex !== null && followedStories[activeStoryIndex] && (() => {
+        const story = followedStories[activeStoryIndex];
+        return (
+          <section className="modalOverlay" onClick={() => setActiveStoryIndex(null)} style={{ background: 'rgba(0,0,0,0.85)', zIndex: 1100 }}>
+            <div
+              className="modalCard"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              style={{
+                maxWidth: '440px',
+                width: '90%',
+                height: '75vh',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '24px',
+                overflow: 'hidden',
+                background: `linear-gradient(rgba(13, 20, 24, 0.7), rgba(13, 20, 24, 0.9)), url(${story.mediaUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80'})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                position: 'relative'
+              }}
+            >
+              {/* Progress bars at top */}
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                left: '12px',
+                right: '12px',
+                display: 'flex',
+                gap: '6px',
+                zIndex: 10
+              }}>
+                {followedStories.map((s, idx) => {
+                  let width = '0%';
+                  if (idx < activeStoryIndex) width = '100%';
+                  else if (idx === activeStoryIndex) width = '100%';
+                  return (
+                    <div key={s._id} style={{
+                      flex: 1,
+                      height: '3px',
+                      background: 'rgba(255,255,255,0.2)',
+                      borderRadius: '2px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        width: width,
+                        height: '100%',
+                        background: '#fff',
+                        transition: idx === activeStoryIndex ? 'width 5s linear' : 'none'
+                      }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Story Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '25px 20px 15px',
+                zIndex: 10,
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    background: getAvatarGradient(story.avatarColor || story.userId),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    color: '#fff',
+                    fontSize: '0.85rem'
+                  }}>
+                    {story.username.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '600', color: '#fff', fontSize: '0.95rem' }}>{story.username}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>
+                      {story.distanceMeters !== undefined ? `a ${story.distanceMeters < 1000 ? `${story.distanceMeters} m` : `${(story.distanceMeters / 1000).toFixed(1)} km`}` : 'Cerca de ti'}
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setActiveStoryIndex(null)}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '1rem'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Story Content Area */}
+              <div style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '20px',
+                zIndex: 10,
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.45)',
+                  backdropFilter: 'blur(16px)',
+                  padding: '24px',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  maxWidth: '90%',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                }}>
+                  <p style={{
+                    fontSize: '1.25rem',
+                    color: '#fff',
+                    margin: 0,
+                    fontWeight: '500',
+                    lineHeight: '1.5',
+                    wordBreak: 'break-word',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                  }}>
+                    {story.body}
+                  </p>
+                </div>
+              </div>
+
+              {/* Story Footer with Like / Next controls */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px',
+                zIndex: 10,
+                background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)'
+              }}>
+                <button
+                  disabled={activeStoryIndex === 0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveStoryIndex(activeStoryIndex - 1);
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '8px 16px',
+                    color: '#fff',
+                    cursor: activeStoryIndex === 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.85rem',
+                    opacity: activeStoryIndex === 0 ? 0.3 : 1
+                  }}
+                >
+                  ◀ Anterior
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    likePublicStatus(story._id);
+                  }}
+                  style={{
+                    background: story.isLiked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '50%',
+                    width: '45px',
+                    height: '45px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: story.isLiked ? '#ef4444' : '#fff',
+                    cursor: 'pointer',
+                    fontSize: '1.2rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {story.isLiked ? '❤️' : '🤍'}
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (activeStoryIndex < followedStories.length - 1) {
+                      setActiveStoryIndex(activeStoryIndex + 1);
+                    } else {
+                      setActiveStoryIndex(null);
+                    }
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '8px 16px',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {activeStoryIndex === followedStories.length - 1 ? 'Cerrar ✕' : 'Siguiente ▶'}
+                </button>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {toasts.length > 0 && (
         <div className="toast-container" aria-live="polite">

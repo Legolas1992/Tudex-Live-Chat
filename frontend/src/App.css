@@ -54,6 +54,22 @@ button, textarea, input, select {
   outline-offset: 2px;
 }
 
+/* Sleek custom scrollbars globally */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 /* Background Animation Elements */
 .bg-blob-container {
   position: fixed;
@@ -308,13 +324,15 @@ button, textarea, input, select {
 }
 
 .sidebarHeader {
-  padding: 24px 20px;
+  padding: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #ff6f24;
+  background: rgba(13, 20, 24, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: #ffffff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebarHeader h2 {
@@ -327,17 +345,18 @@ button, textarea, input, select {
 .sidebarHeader .secondary,
 .chatHeader .secondary {
   color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
-  background: rgba(255, 255, 255, 0.15) !important;
-  text-shadow: 0 0 4px #ffffff;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease !important;
 }
 
 .sidebarHeader .secondary:hover,
 .chatHeader .secondary:hover {
-  background: rgba(255, 255, 255, 0.3) !important;
-  text-shadow: 0 0 6px #ffffff;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 12px var(--accent-glow) !important;
 }
 
 .headerActions {
@@ -575,9 +594,11 @@ button, textarea, input, select {
 
 .chatHeader {
   padding: 14px 18px;
-  background: #ff6f24;
+  background: rgba(17, 25, 31, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: #ffffff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;

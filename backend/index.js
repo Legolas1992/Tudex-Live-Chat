@@ -329,10 +329,34 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   avatarColor: { type: String },
   bio: { type: String, default: '¡Hola! Estoy usando Tapchat.' },
-  status: { type: String, default: 'online' }
+  status: { type: String, default: 'online' },
+  latitude: { type: Number },
+  longitude: { type: Number },
+  followedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 
 const User = mongoose.model('User', UserSchema);
+
+// Public Status Schema (ephemeral 24h posts)
+const PublicStatusSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  username: String,
+  avatarColor: String,
+  body: String,
+  mediaUrl: String,
+  mediaType: { type: String, enum: ['text', 'image', 'video', 'audio'], default: 'text' },
+  latitude: Number,
+  longitude: Number,
+  likesCount: { type: Number, default: 0 },
+  viewsCount: { type: Number, default: 0 },
+  likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+}, { timestamps: true });
+
+// Ephemeral index (TTL 24 hours = 86400 seconds)
+PublicStatusSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
+
+const PublicStatus = mongoose.model('PublicStatus', PublicStatusSchema);
 
 // Session Schema
 const SessionSchema = new mongoose.Schema({
@@ -376,12 +400,19 @@ app.post('/api/auth/register', async (req, res) => {
     const hue = Math.floor(Math.random() * 360);
     const avatarColor = `hsl(${hue}, 70%, 40%)`;
 
+    // Generate random coordinates around Madrid, Spain (approx. range)
+    const latitude = 40.4167 + (Math.random() - 0.5) * 0.08;
+    const longitude = -3.7037 + (Math.random() - 0.5) * 0.08;
+
     const user = await User.create({
       username: cleanUsername,
       email: cleanEmail,
       password: hashedPassword,
       avatarColor,
-      bio: '¡Hola! Estoy usando Tapchat.'
+      bio: '¡Hola! Estoy usando Tapchat.',
+      latitude,
+      longitude,
+      followedUsers: []
     });
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -580,6 +611,220 @@ app.get('/api/users/search', async (req, res) => {
   }
 });
 
+// Haversine Distance helper
+function getHaversineDistance(lat1, lon1, lat2, lon2) {
+  if (lat1 === undefined || lon1 === undefined || lat2 === undefined || lon2 === undefined) return null;
+  const R = 6371e3; // metres
+  const phi1 = lat1 * Math.PI/180;
+  const phi2 = lat2 * Math.PI/180;
+  const deltaPhi = (lat2-lat1) * Math.PI/180;
+  const deltaLambda = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // in metres
+}
+
+// Proximity-based discovery grid
+app.get('/api/users/proximity', async (req, res) => {
+  try {
+    const userLat = req.user.latitude || 40.4167;
+    const userLng = req.user.longitude || -3.7037;
+
+    const allUsers = await User.find({
+      _id: { $ne: req.user._id },
+      username: { $ne: 'admin' }
+    }).select('_id username email avatarColor bio status latitude longitude');
+
+    const mapped = allUsers.map(u => {
+      const lat = u.latitude || (40.4167 + (Math.random() - 0.5) * 0.08);
+      const lng = u.longitude || (-3.7037 + (Math.random() - 0.5) * 0.08);
+      const distance = getHaversineDistance(userLat, userLng, lat, lng);
+      
+      return {
+        _id: u._id,
+        username: u.username,
+        avatarColor: u.avatarColor,
+        bio: u.bio,
+        status: u.status,
+        distanceMeters: distance !== null ? Math.round(distance) : null,
+        isFollowed: Array.isArray(req.user.followedUsers) && req.user.followedUsers.some(id => String(id) === String(u._id))
+      };
+    });
+
+    // Sort closest first
+    mapped.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
+
+    res.json(mapped);
+  } catch (err) {
+    console.error('Proximity users error:', err);
+    res.status(500).json({ error: 'Error al cargar usuarios por proximidad.' });
+  }
+});
+
+// Follow user
+app.post('/api/users/:userId/follow', async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    if (!targetUserId) return res.status(400).json({ error: 'Falta el ID del usuario.' });
+
+    const user = await User.findById(req.user._id);
+    if (!user.followedUsers.some(id => String(id) === String(targetUserId))) {
+      user.followedUsers.push(targetUserId);
+      await user.save();
+    }
+    res.json({ success: true, followedUsers: user.followedUsers });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al seguir usuario.' });
+  }
+});
+
+// Unfollow user
+app.post('/api/users/:userId/unfollow', async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    if (!targetUserId) return res.status(400).json({ error: 'Falta el ID del usuario.' });
+
+    const user = await User.findById(req.user._id);
+    user.followedUsers = user.followedUsers.filter(id => String(id) !== String(targetUserId));
+    await user.save();
+    res.json({ success: true, followedUsers: user.followedUsers });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al dejar de seguir usuario.' });
+  }
+});
+
+// Post Public status (ephemeral 24h)
+app.post('/api/public-statuses', async (req, res) => {
+  try {
+    const { body, mediaUrl, mediaType } = req.body;
+    if (!body && !mediaUrl) {
+      return res.status(400).json({ error: 'El contenido o la imagen son obligatorios.' });
+    }
+
+    const publicStatus = await PublicStatus.create({
+      userId: req.user._id,
+      username: req.user.username,
+      avatarColor: req.user.avatarColor,
+      body: body || '',
+      mediaUrl: mediaUrl || '',
+      mediaType: mediaType || 'text',
+      latitude: req.user.latitude || 40.4167,
+      longitude: req.user.longitude || -3.7037,
+      likesCount: 0,
+      viewsCount: 1, // Self view initial
+      likedBy: [],
+      viewedBy: [req.user._id]
+    });
+
+    res.status(201).json(publicStatus);
+  } catch (err) {
+    console.error('Create public status error:', err);
+    res.status(500).json({ error: 'Error al publicar estado.' });
+  }
+});
+
+// Get Public statuses with Hybrid scoring (closeness + engagement)
+app.get('/api/public-statuses', async (req, res) => {
+  try {
+    const userLat = req.user.latitude || 40.4167;
+    const userLng = req.user.longitude || -3.7037;
+
+    const statuses = await PublicStatus.find().lean();
+
+    const scored = statuses.map(s => {
+      const lat = s.latitude || 40.4167;
+      const lng = s.longitude || -3.7037;
+      const distance = getHaversineDistance(userLat, userLng, lat, lng) || 100;
+      
+      const engagement = (s.likesCount || 0) * 2 + (s.viewsCount || 0) + 1;
+      const score = engagement / ((distance / 1000) + 1); // Hybrid proximity + engagement formula
+
+      return {
+        ...s,
+        distanceMeters: Math.round(distance),
+        score,
+        isLiked: Array.isArray(s.likedBy) && s.likedBy.some(id => String(id) === String(req.user._id))
+      };
+    });
+
+    // High scores first
+    scored.sort((a, b) => b.score - a.score);
+
+    res.json(scored);
+  } catch (err) {
+    console.error('Fetch public statuses error:', err);
+    res.status(500).json({ error: 'Error al obtener el muro de estados.' });
+  }
+});
+
+// Like public status
+app.post('/api/public-statuses/:id/like', async (req, res) => {
+  try {
+    const status = await PublicStatus.findById(req.params.id);
+    if (!status) return res.status(404).json({ error: 'Publicación no encontrada.' });
+
+    const userIdStr = String(req.user._id);
+    const hasLiked = status.likedBy.some(id => String(id) === userIdStr);
+
+    if (hasLiked) {
+      // Unlike
+      status.likedBy = status.likedBy.filter(id => String(id) !== userIdStr);
+      status.likesCount = Math.max(0, status.likesCount - 1);
+    } else {
+      // Like
+      status.likedBy.push(req.user._id);
+      status.likesCount += 1;
+    }
+
+    await status.save();
+    res.json({ success: true, likesCount: status.likesCount, isLiked: !hasLiked });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al dar me gusta.' });
+  }
+});
+
+// View public status
+app.post('/api/public-statuses/:id/view', async (req, res) => {
+  try {
+    const status = await PublicStatus.findById(req.params.id);
+    if (!status) return res.status(404).json({ error: 'Publicación no encontrada.' });
+
+    const userIdStr = String(req.user._id);
+    const hasViewed = status.viewedBy.some(id => String(id) === userIdStr);
+
+    if (!hasViewed) {
+      status.viewedBy.push(req.user._id);
+      status.viewsCount += 1;
+      await status.save();
+    }
+
+    res.json({ success: true, viewsCount: status.viewsCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al contar vista.' });
+  }
+});
+
+// Get followed active stories
+app.get('/api/followed-statuses', async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const followedIds = user.followedUsers || [];
+
+    const statuses = await PublicStatus.find({
+      userId: { $in: followedIds }
+    }).sort({ createdAt: -1 }).lean();
+
+    res.json(statuses);
+  } catch (err) {
+    console.error('Followed stories error:', err);
+    res.status(500).json({ error: 'Error al obtener historias de seguidos.' });
+  }
+});
+
 // Healthcheck/Auth verify endpoint
 app.get('/api/check-auth', (req, res) => {
   res.json({
@@ -772,7 +1017,7 @@ function buildConversationKey(provider, accountId, conversationId) {
 
 function parseProviderContext(req = {}) {
   const provider = normalizeProvider(req.query?.provider || req.body?.provider || DEFAULT_PROVIDER);
-  const accountId = normalizeAccountId(req.query?.accountId || req.body?.accountId || DEFAULT_ACCOUNT_ID);
+  const accountId = normalizeAccountId(req.query?.accountId || req.body?.accountId || (req.user ? String(req.user._id) : '') || DEFAULT_ACCOUNT_ID);
   return { provider, accountId };
 }
 
