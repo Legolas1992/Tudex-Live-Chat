@@ -20,7 +20,7 @@ services:
       mongo:
         condition: service_healthy
     ports:
-      - "3005:3005"
+      - "${BACKEND_PORT:-3005}:3005"
     environment:
       PORT: 3005
       MONGODB_URI: mongodb://mongo:27017/tapchat
@@ -63,7 +63,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
 
 volumes:
   mongo_data:
