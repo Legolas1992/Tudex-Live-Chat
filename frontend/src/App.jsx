@@ -3721,6 +3721,7 @@ function App() {
                       onClick={() => setCorrectedDraft("")}
                       style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}
                       title="Descartar"
+                      aria-label="Descartar sugerencia de IA"
                     >
                       ✕
                     </button>
@@ -3830,6 +3831,7 @@ function App() {
                       transform: draft.trim() ? 'scale(1.15)' : 'none'
                     }}
                     title="Mejorar redacción con IA (Ver sugerencia)"
+                    aria-label="Mejorar redacción con IA"
                   >
                     ✨
                   </button>
@@ -3861,6 +3863,7 @@ function App() {
                     flexShrink: 0
                   }}
                   title="Enviar original"
+                  aria-label="Enviar mensaje original"
                 >
                   <SendIcon size={20} />
                 </button>

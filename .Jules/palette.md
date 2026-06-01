@@ -1,0 +1,3 @@
+## 2024-05-24 - Missing ARIA Labels on Icon-Only Buttons
+**Learning:** The composer component in this React application extensively uses icon-only buttons (with emojis or SVGs) to save space, but previously lacked `aria-label` attributes. This pattern makes it difficult for screen reader users to understand the purpose of core actions like "Dismiss AI Suggestion", "Improve with AI", and "Send Original".
+**Action:** When working on complex interaction areas (like chat composers), always ensure that buttons without visible text labels include a descriptive `aria-label` to provide context for assistive technologies.
