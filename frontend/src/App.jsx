@@ -2401,7 +2401,7 @@ function App() {
           <h2>
             {viewMode === "chats" ? "Chats" : viewMode === "statuses" ? "Estados" : "Notificaciones"}
             {viewMode === "chats" && syncingChats && (
-              <span className="syncIndicator" title="Sincronizando chats..." aria-live="polite"><ReloadIcon size={14} className="spinning" style={{ marginLeft: '6px', display: 'inline-block', verticalAlign: 'middle' }} /></span>
+              <span className="syncIndicator" title="Sincronizando chats..." aria-label="Sincronizando chats..." aria-live="polite"><ReloadIcon size={14} className="spinning" style={{ marginLeft: '6px', display: 'inline-block', verticalAlign: 'middle' }} /></span>
             )}
           </h2>
           <div className="headerActions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2504,7 +2504,7 @@ function App() {
                 boxShadow: '0 4px 10px rgba(99, 102, 241, 0.2)',
                 flexShrink: 0
               }}
-              title="Iniciar nuevo chat"
+              title="Iniciar nuevo chat" aria-label="Iniciar nuevo chat"
             >
               <PlusIcon size={18} />
             </button>
@@ -3124,7 +3124,7 @@ function App() {
                         padding: '0 4px',
                         display: 'inline-flex'
                       }}
-                      title="Eliminar"
+                      title="Eliminar" aria-label="Eliminar"
                     >
                       ❌
                     </button>
@@ -3720,7 +3720,7 @@ function App() {
                       className="iconButton"
                       onClick={() => setCorrectedDraft("")}
                       style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}
-                      title="Descartar"
+                      title="Descartar" aria-label="Descartar"
                     >
                       ✕
                     </button>
@@ -3771,7 +3771,7 @@ function App() {
                   boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)'
                 }}>
                   {/* Emoji Icon inside Pill */}
-                  <span style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }} title="Emojis">
+                  <span style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }} title="Emojis" aria-label="Emojis" role="button">
                     😊
                   </span>
 
@@ -3829,7 +3829,7 @@ function App() {
                       transition: 'all 0.2s ease',
                       transform: draft.trim() ? 'scale(1.15)' : 'none'
                     }}
-                    title="Mejorar redacción con IA (Ver sugerencia)"
+                    title="Mejorar redacción con IA (Ver sugerencia)" aria-label="Mejorar redacción con IA (Ver sugerencia)"
                   >
                     ✨
                   </button>
@@ -3860,7 +3860,7 @@ function App() {
                     transition: 'all 0.25s ease',
                     flexShrink: 0
                   }}
-                  title="Enviar original"
+                  title="Enviar original" aria-label="Enviar original"
                 >
                   <SendIcon size={20} />
                 </button>
@@ -4191,7 +4191,7 @@ function App() {
                         onMouseLeave={(e) => {
                           e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
                         }}
-                        title={color}
+                        title={color} aria-label={`Color: ${color}`}
                       />
                     ))}
                   </div>
@@ -4977,7 +4977,7 @@ function App() {
                       transform: newStatusBgTheme === theme.id ? 'scale(1.08)' : 'none',
                       boxShadow: newStatusBgTheme === theme.id ? '0 0 8px rgba(255,255,255,0.5)' : 'none'
                     }}
-                    title={theme.label}
+                    title={theme.label} aria-label={`Fondo: ${theme.label}`}
                   />
                 ))}
               </div>
