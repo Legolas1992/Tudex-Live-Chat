@@ -637,9 +637,10 @@ app.get('/api/users/search', async (req, res) => {
     };
 
     if (query) {
+      const escapedQuery = escapeRegExp(query);
       filter.$or = [
-        { username: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } }
+        { username: { $regex: escapedQuery, $options: 'i' } },
+        { email: { $regex: escapedQuery, $options: 'i' } }
       ];
     }
 
@@ -2157,6 +2158,10 @@ function sanitizeTextInput(value) {
   return String(value || '')
     .replace(/\r\n/g, '\n')
     .trim();
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function getAvailableModels(forceRefresh = false) {
