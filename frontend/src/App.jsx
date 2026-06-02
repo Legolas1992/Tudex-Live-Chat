@@ -384,6 +384,7 @@ function App() {
   const lastGrammarCheckAtRef = useRef(0);
   const searchInputRef = useRef(null);
   const draftInputRef = useRef(null);
+  const searchUserDebounceRef = useRef(null);
 
   const [apiAuthenticated, setApiAuthenticated] = useState(false);
   const [inputApiKey, setInputApiKey] = useState(localStorage.getItem("tapchat_api_key") || "");
@@ -4576,7 +4577,13 @@ function App() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setSearchUserQuery(val);
-                  loadDirectoryUsers(val);
+                  // ⚡ Bolt: Debounce directory search API call
+                  // Reduces backend load by preventing request thrashing on fast typing
+                  // Expectation: Cuts user search API traffic by ~70-90% during input
+                  if (searchUserDebounceRef.current) clearTimeout(searchUserDebounceRef.current);
+                  searchUserDebounceRef.current = setTimeout(() => {
+                    loadDirectoryUsers(val);
+                  }, 300);
                 }}
                 placeholder="Buscar por usuario o correo..."
                 style={{
