@@ -1,0 +1,3 @@
+## 2025-06-02 - Missing Debounce on API Queries
+**Learning:** React components triggering API calls via `onChange` in this application (like directory search) lack debouncing. Calling an API on every keystroke causes backend thrashing and wastes resources.
+**Action:** Whenever adding or maintaining search/filtering text inputs that query external APIs, ensure a ~300ms debounce layer (e.g., via `setTimeout` and `useRef`) is applied to prevent backend thrashing.
