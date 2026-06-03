@@ -183,12 +183,12 @@ const authenticateUser = async (req, res, next) => {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7);
   } else {
-    token = req.headers['x-api-key'] || req.query.api_key;
+    token = String(req.headers['x-api-key'] || req.query.api_key || '');
   }
 
   if (!token) {
     // Legacy support for API_KEY (admin credentials)
-    if (API_KEY && (req.headers['x-api-key'] === API_KEY || req.query.api_key === API_KEY)) {
+    if (API_KEY && (String(req.headers['x-api-key'] || '') === API_KEY || String(req.query.api_key || '') === API_KEY)) {
       let adminUser = await User.findOne({ username: 'admin' });
       if (!adminUser) {
         try {
@@ -231,7 +231,7 @@ const authenticateUser = async (req, res, next) => {
 };
 
 io.use(async (socket, next) => {
-  const token = socket.handshake.auth.token;
+  const token = String(socket.handshake.auth.token || '');
   if (!token) {
     return next(new Error("Authentication token is required"));
   }
@@ -629,7 +629,7 @@ app.put('/api/auth/profile', async (req, res) => {
 // User Search endpoint
 app.get('/api/users/search', async (req, res) => {
   try {
-    const query = String(req.query.q || '').trim();
+    const query = String(req.query.q || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
     let filter = {
       _id: { $ne: req.user._id },
