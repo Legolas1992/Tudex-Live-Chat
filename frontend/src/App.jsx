@@ -446,6 +446,7 @@ function App() {
   const [draftsByChat, setDraftsByChat] = useState(() => { try { return JSON.parse(localStorage.getItem("tapchat_drafts") || "{}"); } catch (e) { return {}; } }); const draft = draftsByChat[selectedChatId] || ""; const setDraft = (val) => setDraftsByChat(prev => ({ ...prev, [selectedChatId]: val }));
   const [correctedDraft, setCorrectedDraft] = useState("");
   const debouncedDraftRef = useRef(null);
+  const searchUserDebounceRef = useRef(null);
   const [replyTarget, setReplyTarget] = useState(null);
   const [grammarInsights, setGrammarInsights] = useState({});
   const [replyQueue, setReplyQueue] = useState([]);
@@ -4576,7 +4577,13 @@ function App() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setSearchUserQuery(val);
-                  loadDirectoryUsers(val);
+                  // ⚡ Bolt: Debounce search input to prevent backend API thrashing on every keystroke
+                  if (searchUserDebounceRef.current) {
+                    clearTimeout(searchUserDebounceRef.current);
+                  }
+                  searchUserDebounceRef.current = setTimeout(() => {
+                    loadDirectoryUsers(val);
+                  }, 300);
                 }}
                 placeholder="Buscar por usuario o correo..."
                 style={{
