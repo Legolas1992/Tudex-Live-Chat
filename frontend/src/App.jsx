@@ -3771,7 +3771,13 @@ function App() {
                   boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)'
                 }}>
                   {/* Emoji Icon inside Pill */}
-                  <span style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }} title="Emojis">
+                  <span
+                    style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }}
+                    title="Emojis"
+                    role="button"
+                    aria-label="Abrir emojis"
+                    tabIndex={0}
+                  >
                     😊
                   </span>
 
