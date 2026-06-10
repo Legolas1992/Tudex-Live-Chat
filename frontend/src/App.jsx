@@ -2506,6 +2506,7 @@ function App() {
                 flexShrink: 0
               }}
               title="Iniciar nuevo chat"
+              aria-label="Iniciar nuevo chat"
             >
               <PlusIcon size={18} />
             </button>
@@ -4197,6 +4198,7 @@ function App() {
                           e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
                         }}
                         title={color}
+                        aria-label={`Seleccionar color ${color}`}
                       />
                     ))}
                   </div>
@@ -4993,6 +4995,7 @@ function App() {
                       boxShadow: newStatusBgTheme === theme.id ? '0 0 8px rgba(255,255,255,0.5)' : 'none'
                     }}
                     title={theme.label}
+                    aria-label={`Seleccionar tema ${theme.label}`}
                   />
                 ))}
               </div>
