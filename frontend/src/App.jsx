@@ -3774,7 +3774,22 @@ function App() {
                   boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)'
                 }}>
                   {/* Emoji Icon inside Pill */}
-                  <span style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }} title="Emojis">
+                  <span
+                    style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }}
+                    title="Emojis"
+                    role="button"
+                    aria-label="Emojis"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.currentTarget.click();
+                      }
+                    }}
+                    onClick={() => {
+                      showNotice("Selector de emojis no implementado", "info");
+                    }}
+                  >
                     😊
                   </span>
 
@@ -4197,6 +4212,7 @@ function App() {
                           e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
                         }}
                         title={color}
+                        aria-label={`Seleccionar color ${color}`}
                       />
                     ))}
                   </div>
@@ -4993,6 +5009,7 @@ function App() {
                       boxShadow: newStatusBgTheme === theme.id ? '0 0 8px rgba(255,255,255,0.5)' : 'none'
                     }}
                     title={theme.label}
+                    aria-label={`Fondo ${theme.label}`}
                   />
                 ))}
               </div>
