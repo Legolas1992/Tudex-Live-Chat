@@ -434,6 +434,13 @@ function App() {
   );
 
   const [chatSearch, setChatSearch] = useState("");
+  const [chatSearchInputValue, setChatSearchInputValue] = useState("");
+  const searchTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    setChatSearchInputValue(chatSearch);
+  }, [chatSearch]);
+
   const [chats, setChats] = useState([]);
   const [viewMode, setViewMode] = useState("chats");
   const [messagesByChat, setMessagesByChat] = useState({});
@@ -2480,8 +2487,15 @@ function App() {
             id="chatSearchInput"
             ref={searchInputRef}
             type="text"
-            value={chatSearch}
-            onChange={(e) => setChatSearch(e.target.value)}
+            value={chatSearchInputValue}
+            onChange={(e) => {
+              // ⚡ Bolt: Debounce chat search to prevent expensive useMemo filters on every keystroke
+              setChatSearchInputValue(e.target.value);
+              if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+              searchTimeoutRef.current = setTimeout(() => {
+                setChatSearch(e.target.value);
+              }, 300);
+            }}
             placeholder={viewMode === "statuses" ? "Buscar estado..." : "Buscar chat... (Ctrl+K)"}
             style={{ flex: 1, paddingLeft: '36px' }}
           />
