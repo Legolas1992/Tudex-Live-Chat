@@ -197,13 +197,16 @@ const authenticateUser = async (req, res, next) => {
       let adminUser = await User.findOne({ username: 'admin' });
       if (!adminUser) {
         try {
+          // 🛡️ Sentinel: Removed hardcoded password 'admin123' to prevent unauthorized access via default credentials.
+          const initialPassword = crypto.randomBytes(16).toString('hex');
           adminUser = await User.create({
             username: 'admin',
             email: 'admin@tapchat.local',
-            password: hashPassword('admin123'),
+            password: hashPassword(initialPassword),
             avatarColor: 'hsl(200, 70%, 40%)',
             bio: 'Administrador del sistema'
           });
+          console.log(`🛡️ Sentinel: Created default admin user. Initial password: ${initialPassword}`);
         } catch (e) {
           // If already exists or concurrently created
           adminUser = await User.findOne({ username: 'admin' });
@@ -249,13 +252,16 @@ io.use(async (socket, next) => {
     let adminUser = await User.findOne({ username: 'admin' });
     if (!adminUser) {
       try {
+        // 🛡️ Sentinel: Removed hardcoded password 'admin123' to prevent unauthorized access via default credentials.
+        const initialPassword = crypto.randomBytes(16).toString('hex');
         adminUser = await User.create({
           username: 'admin',
           email: 'admin@tapchat.local',
-          password: hashPassword('admin123'),
+          password: hashPassword(initialPassword),
           avatarColor: 'hsl(200, 70%, 40%)',
           bio: 'Administrador del sistema'
         });
+        console.log(`🛡️ Sentinel: Created default admin user. Initial password: ${initialPassword}`);
       } catch (e) {
         adminUser = await User.findOne({ username: 'admin' });
       }
