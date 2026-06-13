@@ -4176,6 +4176,7 @@ function App() {
                         key={color}
                         type="button"
                         onClick={() => setUserAvatarColorInput(color)}
+                        aria-label={"Seleccionar color de avatar " + color}
                         style={{
                           width: '26px',
                           height: '26px',
@@ -4798,6 +4799,7 @@ function App() {
                 </div>
                 <button 
                   onClick={() => setActiveStoryIndex(null)}
+                  aria-label="Cerrar historia"
                   style={{
                     background: 'rgba(255,255,255,0.1)',
                     border: 'none',
@@ -4884,6 +4886,7 @@ function App() {
                     e.stopPropagation();
                     likePublicStatus(story._id);
                   }}
+                  aria-label={story.isLiked ? "Ya no me gusta" : "Me gusta"}
                   style={{
                     background: story.isLiked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.1)',
                     border: '1px solid rgba(255,255,255,0.1)',
@@ -4982,6 +4985,7 @@ function App() {
                     key={theme.id}
                     type="button"
                     onClick={() => setNewStatusBgTheme(theme.id)}
+                    aria-label={"Seleccionar fondo " + theme.label}
                     style={{
                       height: '45px',
                       borderRadius: '8px',
