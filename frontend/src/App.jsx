@@ -434,6 +434,13 @@ function App() {
   );
 
   const [chatSearch, setChatSearch] = useState("");
+  const [localChatSearch, setLocalChatSearch] = useState("");
+  const chatSearchDebounceRef = useRef(null);
+
+  useEffect(() => {
+    setLocalChatSearch(chatSearch);
+  }, [chatSearch]);
+
   const [chats, setChats] = useState([]);
   const [viewMode, setViewMode] = useState("chats");
   const [messagesByChat, setMessagesByChat] = useState({});
@@ -2480,8 +2487,19 @@ function App() {
             id="chatSearchInput"
             ref={searchInputRef}
             type="text"
-            value={chatSearch}
-            onChange={(e) => setChatSearch(e.target.value)}
+            value={localChatSearch}
+            onChange={(e) => {
+              const val = e.target.value;
+              setLocalChatSearch(val);
+
+              // ⚡ Bolt: Debounce chat search input to prevent excessive re-renders of multiple useMemo hooks (chats, statuses, users)
+              if (chatSearchDebounceRef.current) {
+                clearTimeout(chatSearchDebounceRef.current);
+              }
+              chatSearchDebounceRef.current = setTimeout(() => {
+                setChatSearch(val);
+              }, 300);
+            }}
             placeholder={viewMode === "statuses" ? "Buscar estado..." : "Buscar chat... (Ctrl+K)"}
             style={{ flex: 1, paddingLeft: '36px' }}
           />
