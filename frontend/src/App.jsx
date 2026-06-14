@@ -3102,7 +3102,42 @@ function App() {
           {viewMode === "statuses" && filteredStatusArchive.length === 0 ? (
             <p className="helper">{loadingStatusArchive ? "Cargando estados..." : "No hay estados archivados."}</p>
           ) : null}
-          {viewMode === "chats" && filteredChats.length === 0 ? <p className="helper">No hay chats.</p> : null}
+          {viewMode === "chats" && filteredChats.length === 0 ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '32px 16px',
+              textAlign: 'center',
+              color: 'var(--text-muted)'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.05)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '16px',
+                color: 'var(--text-secondary)'
+              }}>
+                <ChatIcon size={32} />
+              </div>
+              <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px', fontSize: '1.1rem', fontWeight: '600' }}>No hay chats activos</h4>
+              <p style={{ fontSize: '0.85rem', marginBottom: '20px', lineHeight: '1.4', maxWidth: '240px' }}>
+                Conéctate con otros usuarios o inicia una nueva conversación.
+              </p>
+              <button
+                className="primary"
+                onClick={() => setShowNewChatModal(true)}
+                style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '0.9rem' }}
+              >
+                <PlusIcon size={16} /> Iniciar Chat
+              </button>
+            </div>
+          ) : null}
           {viewMode === "discover" && filteredProximityUsers.length === 0 ? <p className="helper">No hay usuarios cercanos.</p> : null}
           {viewMode === "muro" && filteredPublicStatuses.length === 0 ? <p className="helper">No hay estados públicos.</p> : null}
 
