@@ -2502,8 +2502,37 @@ function App() {
             value={localChatSearch}
             onChange={handleChatSearchChange}
             placeholder={viewMode === "statuses" ? "Buscar estado..." : "Buscar chat... (Ctrl+K)"}
-            style={{ flex: 1, paddingLeft: '36px' }}
+            style={{ flex: 1, paddingLeft: '36px', paddingRight: localChatSearch ? '36px' : '12px' }}
           />
+          {localChatSearch && (
+            <button
+              className="iconButton"
+              onClick={() => {
+                setLocalChatSearch("");
+                setChatSearch("");
+                searchInputRef.current?.focus();
+              }}
+              title="Borrar búsqueda"
+              aria-label="Borrar búsqueda"
+              style={{
+                position: 'absolute',
+                right: viewMode !== "statuses" ? '46px' : '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2
+              }}
+            >
+              <CloseIcon size={14} />
+            </button>
+          )}
           {viewMode !== "statuses" && (
             <button
               type="button"
