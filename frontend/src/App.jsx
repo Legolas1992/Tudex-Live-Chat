@@ -2525,6 +2525,7 @@ function App() {
                 flexShrink: 0
               }}
               title="Iniciar nuevo chat"
+              aria-label="Iniciar nuevo chat"
             >
               <PlusIcon size={18} />
             </button>
@@ -3793,7 +3794,19 @@ function App() {
                   boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)'
                 }}>
                   {/* Emoji Icon inside Pill */}
-                  <span style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }} title="Emojis">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Emojis"
+                    title="Emojis"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.currentTarget.click();
+                      }
+                    }}
+                    style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }}
+                  >
                     😊
                   </span>
 
@@ -4217,6 +4230,7 @@ function App() {
                           e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
                         }}
                         title={color}
+                        aria-label={`Color de avatar ${color}`}
                       />
                     ))}
                   </div>
@@ -5016,6 +5030,7 @@ function App() {
                       boxShadow: newStatusBgTheme === theme.id ? '0 0 8px rgba(255,255,255,0.5)' : 'none'
                     }}
                     title={theme.label}
+                    aria-label={`Fondo ${theme.label}`}
                   />
                 ))}
               </div>
