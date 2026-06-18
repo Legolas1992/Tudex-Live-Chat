@@ -3196,7 +3196,8 @@ app.get(['/api/status-archive', '/api/status-archive/:channelCode'], async (req,
     }
 
     const items = await StatusArchive.find(query)
-      .sort({ timestamp: -1, createdAt: -1 })
+      // ⚡ Bolt: Removed unindexed createdAt tie-breaker from sort to prevent memory-intensive in-memory sorting and utilize compound index.
+      .sort({ timestamp: -1 })
       .limit(limit)
       .lean();
 
