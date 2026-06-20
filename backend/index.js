@@ -3195,8 +3195,9 @@ app.get(['/api/status-archive', '/api/status-archive/:channelCode'], async (req,
       query.statusOwnerId = ownerId;
     }
 
+    // ⚡ Bolt: Remove unindexed tie-breaker field (createdAt: -1) to prevent slow in-memory sorts and allow the query to use the { provider: 1, accountId: 1, timestamp: -1 } index.
     const items = await StatusArchive.find(query)
-      .sort({ timestamp: -1, createdAt: -1 })
+      .sort({ timestamp: -1 })
       .limit(limit)
       .lean();
 
