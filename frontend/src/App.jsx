@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import QRCode from "react-qr-code";
 import {
@@ -364,6 +364,42 @@ function AckIcon({ status }) {
   return null;
 }
 
+const ChatSentiment = React.memo(function ChatSentiment({ lastMsg }) {
+  if (!lastMsg) return null;
+  const text = String(lastMsg.body || '').toLowerCase();
+  const positive = ['bien', 'feliz', 'buen', 'genial', 'excelente', 'gracias', 'jaja', 'súper', 'super', ':)'];
+  const negative = ['mal', 'triste', 'enojado', 'problema', 'tarde', 'perdón', 'perdon', 'fallo', 'error', ':('];
+  let score = 0;
+  positive.forEach(w => { if (text.includes(w)) score += 1; });
+  negative.forEach(w => { if (text.includes(w)) score -= 1; });
+
+  let sentiment = null;
+  if (score > 0) sentiment = { emoji: "😊", color: "#10b981", label: "Positivo" };
+  else if (score < 0) sentiment = { emoji: "😕", color: "#f43f5e", label: "Negativo" };
+
+  if (!sentiment) return null;
+  return (
+    <span
+      title={`Análisis de Sentimiento: ${sentiment.label}`}
+      style={{
+        fontSize: '11px',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '18px',
+        height: '18px',
+        borderRadius: '50%',
+        background: `${sentiment.color}20`,
+        border: `1px solid ${sentiment.color}`,
+        color: sentiment.color,
+        marginLeft: '4px'
+      }}
+    >
+      {sentiment.emoji}
+    </span>
+  );
+});
+
 function App() {
   const socketRef = useRef(null);
   const selectedChatIdRef = useRef("");
@@ -485,6 +521,10 @@ function App() {
     systemPrompt: "",
     userPromptTemplate: ""
   });
+
+  const [typingStates, setTypingStates] = useState({});
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState("profile");
 
   const [currentUser, setCurrentUser] = useState(null);
   const currentUserRef = useRef(currentUser);
@@ -1278,6 +1318,14 @@ function App() {
       mergeLiveMessage(payload);
     };
     socket.on("new_message", handleNewMessage);
+    socket.on("chat_state", (payload) => {
+      if (payload && payload.chatId) {
+        setTypingStates((prev) => ({
+          ...prev,
+          [payload.chatId]: payload.state === 'typing'
+        }));
+      }
+    });
     socket.on("message_updated", (updated) => {
       const eventProvider = updated?.provider || DEFAULT_PROVIDER;
       const eventAccountId = updated?.accountId || DEFAULT_ACCOUNT_ID;
@@ -1323,10 +1371,15 @@ function App() {
       prev.map((item) => (item.id === selectedChatId ? { ...item, unreadCount: 0 } : item))
     );
     markChatAsRead(selectedChatId);
-    setMessages(messagesByChat[selectedChatId] || []);
+    const cached = messagesByChat[selectedChatId] || [];
+    setMessages(cached);
+    const needLoader = cached.length === 0;
+    if (needLoader) {
+      setLoadingMessages((prev) => ({ ...prev, [selectedChatId]: true }));
+    }
     fetchMessages(selectedChatId, {
-      withLoader: !messagesByChat[selectedChatId],
-      background: !!messagesByChat[selectedChatId]
+      withLoader: needLoader,
+      background: !needLoader
     });
   }, [selectedChatId]);
 
@@ -2423,6 +2476,9 @@ function App() {
         <header className="sidebarHeader">
           <h2>
             {viewMode === "chats" ? "Chats" : viewMode === "statuses" ? "Estados" : "Notificaciones"}
+            {viewMode === "chats" && totalUnread > 0 && (
+              <span className="pendingCounter" style={{ marginLeft: '8px', display: 'inline-flex', alignSelf: 'center' }}>{totalUnread}</span>
+            )}
             {viewMode === "chats" && syncingChats && (
               <span className="syncIndicator" title="Sincronizando chats..." aria-live="polite"><ReloadIcon size={14} className="spinning" style={{ marginLeft: '6px', display: 'inline-block', verticalAlign: 'middle' }} /></span>
             )}
@@ -2483,15 +2539,6 @@ function App() {
             </button>
           </div>
         </header>
-
-        <div className="statusBar" role="status" aria-live="polite" aria-atomic="true">
-          <span className={`dot ${dotClass}`} aria-hidden="true" />
-          <span className="sr-only">{socketConnected ? "Conectado al servidor." : "Desconectado del servidor."}</span>
-          <span>
-            {connectionLabel}
-          </span>
-          {totalUnread > 0 ? <strong className="pendingCounter" aria-label={`${totalUnread} mensajes pendientes`}>{totalUnread} pendientes</strong> : null}
-        </div>
 
         <div className="searchWrap" style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative', width: '100%' }}>
           <label htmlFor="chatSearchInput" className="sr-only">
@@ -3084,40 +3131,7 @@ function App() {
                     {chat.isGroup ? <span className="chatKindBadge">Grupo</span> : null}
                     {(() => {
                       const chatMsgs = messagesByChat[chat.id] || [];
-                      const lastMsg = chatMsgs.length > 0 ? chatMsgs[chatMsgs.length - 1] : null;
-                      if (!lastMsg) return null;
-                      const text = String(lastMsg.body || '').toLowerCase();
-                      const positive = ['bien', 'feliz', 'buen', 'genial', 'excelente', 'gracias', 'jaja', 'súper', 'super', ':)'];
-                      const negative = ['mal', 'triste', 'enojado', 'problema', 'tarde', 'perdón', 'perdon', 'fallo', 'error', ':('];
-                      let score = 0;
-                      positive.forEach(w => { if (text.includes(w)) score += 1; });
-                      negative.forEach(w => { if (text.includes(w)) score -= 1; });
-                      
-                      let sentiment = null;
-                      if (score > 0) sentiment = { emoji: "😊", color: "#10b981", label: "Positivo" };
-                      else if (score < 0) sentiment = { emoji: "😕", color: "#f43f5e", label: "Negativo" };
-                      
-                      if (!sentiment) return null;
-                      return (
-                        <span 
-                          title={`Análisis de Sentimiento: ${sentiment.label}`} 
-                          style={{
-                            fontSize: '11px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '18px',
-                            height: '18px',
-                            borderRadius: '50%',
-                            background: `${sentiment.color}20`,
-                            border: `1px solid ${sentiment.color}`,
-                            color: sentiment.color,
-                            marginLeft: '4px'
-                          }}
-                        >
-                          {sentiment.emoji}
-                        </span>
-                      );
+                      return <ChatSentiment lastMsg={chatMsgs.length > 0 ? chatMsgs[chatMsgs.length - 1] : null} />;
                     })()}
                     {chat.unreadCount > 0 ? (
                       <span className="unreadBadge">{chat.unreadCount}</span>
@@ -3650,6 +3664,7 @@ function App() {
                     } ${msg.isRevoked ? "isRevoked" : ""}`}
                     tabIndex={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? 0 : undefined}
                     role={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "button" : undefined}
+                    aria-label={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "Mensaje con errores gramaticales. Presionar para responder con corrección." : undefined}
                     onClick={
                       !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors
                         ? () => prepareGrammarReply(msg)
@@ -4064,566 +4079,37 @@ function App() {
       {showProfileMenu && (
         <section className="modalOverlay" onClick={() => setShowProfileMenu(false)}>
           <div
-            className="modalCard profileSettingsModal"
+            className="modalCard profileSettingsModal fullscreen"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="profileSettingsModalHeading"
-            style={{ maxWidth: '520px', width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
           >
-            <div className="modalHeader" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 id="profileSettingsModalHeading" style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserIcon size={20} /> Mi Perfil y Ajustes
-              </h3>
-              <button className="secondary" onClick={() => setShowProfileMenu(false)} style={{ borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <CloseIcon size={14} /> Cerrar
+            {/* Sidebar Left */}
+            <aside className="settingsSidebar">
+              <div className="settingsSidebarTitle">Ajustes de Usuario</div>
+              <button
+                type="button"
+                className={`settingsSidebarTab ${activeSettingsTab === 'profile' ? 'active' : ''}`}
+                onClick={() => setActiveSettingsTab('profile')}
+              >
+                👤 Mi Cuenta
               </button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Profile Details Block */}
-              <section className="profileDetailSection" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div
-                    style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '50%',
-                      background: (userAvatarUrlInput || currentUser?.avatarUrl) ? 'transparent' : getAvatarGradient(currentUser?.avatarColor || currentUser?.id || 'me'),
-                      color: '#fff',
-                      fontWeight: '700',
-                      border: '2.5px solid #fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1.3rem',
-                      boxShadow: '0 0 12px rgba(255,255,255,0.25)',
-                      flexShrink: 0,
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {(userAvatarUrlInput || currentUser?.avatarUrl) ? (
-                      <img src={userAvatarUrlInput || currentUser?.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      (currentUser?.username || "Yo").slice(0, 2).toUpperCase()
-                    )}
-                  </div>
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontWeight: '700', color: '#fff', fontSize: '1.1rem' }}>{currentUser?.username || 'Usuario'}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>{currentUser?.email || 'sin-correo@tapchat.com'}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="userAvatarUploadInput" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#ccc' }}>Foto de Perfil Personalizada (Subir Imagen)</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      id="userAvatarUploadInput"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setUserAvatarUrlInput(reader.result); // Base64 data URL
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      style={{ display: 'none' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById('userAvatarUploadInput').click()}
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        background: 'rgba(255,255,255,0.05)',
-                        color: '#fff',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <AttachmentIcon size={16} /> Subir foto de perfil
-                    </button>
-                    {(userAvatarUrlInput || currentUser?.avatarUrl) && (
-                      <button
-                        type="button"
-                        onClick={() => setUserAvatarUrlInput("")}
-                        style={{
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          color: '#ef4444',
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                          fontWeight: '600',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <CloseIcon size={14} /> Eliminar foto
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="userUsernameInput" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#ccc' }}>Nombre de Usuario</label>
-                  <input
-                    id="userUsernameInput"
-                    type="text"
-                    value={userUsernameInput}
-                    onChange={(e) => setUserUsernameInput(e.target.value)}
-                    placeholder="Tu nombre de usuario"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(0,0,0,0.15)',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="userEmailInput" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#ccc' }}>Correo Electrónico</label>
-                  <input
-                    id="userEmailInput"
-                    type="email"
-                    value={userEmailInput}
-                    onChange={(e) => setUserEmailInput(e.target.value)}
-                    placeholder="tu@correo.com"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(0,0,0,0.15)',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="userPasswordInput" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#ccc' }}>Nueva Contraseña (dejar en blanco para no cambiar)</label>
-                  <input
-                    id="userPasswordInput"
-                    type="password"
-                    value={userPasswordInput}
-                    onChange={(e) => setUserPasswordInput(e.target.value)}
-                    placeholder="••••••••"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(0,0,0,0.15)',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="userBioInput" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#ccc' }}>Estado / Biografía</label>
-                  <input
-                    id="userBioInput"
-                    type="text"
-                    value={userBioInput}
-                    onChange={(e) => setUserBioInput(e.target.value)}
-                    placeholder="¡Hola! Estoy usando Tapchat."
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(0,0,0,0.15)',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#ccc' }}>Color de Avatar Personalizado</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                    {[
-                      '#ff6f24', // Theme Sunset Orange
-                      '#0284c7', // Sky Blue
-                      '#16a34a', // Emerald Green
-                      '#7c3aed', // Royal Violet
-                      '#db2777', // Rose Pink
-                      '#ef4444', // Red Glow
-                      '#0f172a', // Deep Slate
-                      '#f59e0b'  // Amber Glow
-                    ].map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setUserAvatarColorInput(color)}
-                        aria-label={"Seleccionar color de avatar " + color}
-                        style={{
-                          width: '26px',
-                          height: '26px',
-                          borderRadius: '50%',
-                          background: color,
-                          border: userAvatarColorInput === color ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          transform: userAvatarColorInput === color ? 'scale(1.2)' : 'none',
-                          boxShadow: userAvatarColorInput === color ? '0 0 10px rgba(255,255,255,0.6)' : '0 2px 4px rgba(0,0,0,0.15)',
-                          padding: 0
-                        }}
-                        onMouseEnter={(e) => {
-                          if (userAvatarColorInput !== color) {
-                            e.currentTarget.style.transform = 'scale(1.15)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
-                        }}
-                        title={color}
-                      />
-                    ))}
-                  </div>
-                  <input
-                    id="userAvatarColorInput"
-                    type="text"
-                    value={userAvatarColorInput}
-                    onChange={(e) => setUserAvatarColorInput(e.target.value)}
-                    placeholder="Ej. #ff6f24, hsl(200, 70%, 40%) o linear-gradient(...)"
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(0,0,0,0.15)',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={saveUserProfile}
-                  style={{
-                    padding: '10px 15px',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    width: '100%'
-                  }}
-                >
-                  Guardar Perfil
-                </button>
-
-                <div style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}>
-                  <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>⌨️</span> Atajos de Teclado y Accesos
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowProfileMenu(false);
-                      setTimeout(() => {
-                        searchInputRef.current?.focus();
-                      }, 100);
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '8px',
-                      padding: '8px 10px',
-                      color: '#fff',
-                      fontSize: '0.8rem',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      width: '100%',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                  >
-                    <span>🔍 Buscar chats o usuarios</span>
-                    <kbd style={{ background: '#1f2c33', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: '#ff6f24', border: '1px solid rgba(255, 111, 36, 0.3)', fontWeight: 'bold' }}>Ctrl + K</kbd>
-                  </button>
-                  <div style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    borderRadius: '8px',
-                    padding: '8px 10px',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <span>🔄 Navegar entre chats</span>
-                    <span style={{ display: 'flex', gap: '4px' }}>
-                      <kbd style={{ background: '#1f2c33', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: '#ccc', border: '1px solid rgba(255,255,255,0.1)' }}>Alt</kbd>
-                      <span>+</span>
-                      <kbd style={{ background: '#1f2c33', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: '#ccc', border: '1px solid rgba(255,255,255,0.1)' }}>↑ / ↓</kbd>
-                    </span>
-                  </div>
-                </div>
-              </section>
-
-              {/* Collapsible AI Config panel */}
-              <details style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '10px', overflow: 'hidden' }}>
-                <summary style={{ cursor: 'pointer', fontWeight: '700', color: '#fff', fontSize: '0.95rem', padding: '6px', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <SettingsIcon size={16} /> Ajustes del Asistente de IA (LM Studio / Cloudflare)
-                </summary>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
-                  {loadingAiConfig ? <p className="helper">Cargando configuración...</p> : null}
-
-                  <div>
-                    <label htmlFor="aiProvider" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Proveedor</label>
-                    <select
-                      id="aiProvider"
-                      value={aiConfig.provider}
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, provider: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                    >
-                      <option value="lmstudio">LM Studio (local)</option>
-                      <option value="cloudflare">Cloudflare AI</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="aiEndpoint" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Endpoint activo</label>
-                    <input id="aiEndpoint" value={aiConfig.aiBaseUrl} readOnly style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.1)', color: 'var(--text-muted)', fontSize: '0.85rem' }} />
-                  </div>
-
-                  {aiConfig.provider === "lmstudio" ? (
-                    <div>
-                      <label htmlFor="lmStudioBaseUrl" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>URL LM Studio</label>
-                      <input
-                        id="lmStudioBaseUrl"
-                        value={aiConfig.lmStudioBaseUrl}
-                        spellCheck="false"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        autoCapitalize="none"
-                        onChange={(e) => setAiConfig((prev) => ({ ...prev, lmStudioBaseUrl: e.target.value }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <label htmlFor="cfAccountId" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Cloudflare Account ID</label>
-                        <input
-                          id="cfAccountId"
-                          value={aiConfig.cloudflareAccountId}
-                          spellCheck="false"
-                          autoComplete="off"
-                          autoCorrect="off"
-                          autoCapitalize="none"
-                          onChange={(e) => setAiConfig((prev) => ({ ...prev, cloudflareAccountId: e.target.value }))}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="cfApiToken" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Cloudflare API Token</label>
-                        <div className="passwordInputWrapper" style={{ position: 'relative' }}>
-                          <input
-                            id="cfApiToken"
-                            type={showCloudflareToken ? "text" : "password"}
-                            value={aiConfig.cloudflareApiToken}
-                            spellCheck="false"
-                            autoComplete="off"
-                            autoCorrect="off"
-                            autoCapitalize="none"
-                            onChange={(e) => setAiConfig((prev) => ({ ...prev, cloudflareApiToken: e.target.value }))}
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem', paddingRight: '40px' }}
-                          />
-                          <button
-                            type="button"
-                            className="passwordToggleBtn"
-                            aria-pressed={showCloudflareToken}
-                            onClick={() => setShowCloudflareToken(!showCloudflareToken)}
-                            aria-label={showCloudflareToken ? "Ocultar Cloudflare Token" : "Mostrar Cloudflare Token"}
-                            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.6)' }}
-                          >
-                            {showCloudflareToken ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="cfBaseUrl" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Cloudflare Base URL (opcional)</label>
-                        <input
-                          id="cfBaseUrl"
-                          value={aiConfig.cloudflareBaseUrl}
-                          spellCheck="false"
-                          autoComplete="off"
-                          autoCorrect="off"
-                          autoCapitalize="none"
-                          onChange={(e) => setAiConfig((prev) => ({ ...prev, cloudflareBaseUrl: e.target.value }))}
-                          placeholder="https://api.cloudflare.com/client/v4/accounts/{account_id}/ai"
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div>
-                    <label htmlFor="aiModel" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Modelo</label>
-                    <select
-                      id="aiModel"
-                      value={aiConfig.modelName}
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, modelName: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem', marginBottom: '8px' }}
-                    >
-                      <option value="">Seleccionar modelo...</option>
-                      {aiModels.map((model) => (
-                        <option key={model} value={model}>
-                          {model}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      id="aiModelInput"
-                      value={aiConfig.modelName}
-                      spellCheck="false"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="none"
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, modelName: e.target.value }))}
-                      placeholder="O escribe el nombre exacto del modelo..."
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label htmlFor="aiTemperature" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Temperatura</label>
-                      <input
-                        id="aiTemperature"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="2"
-                        value={aiConfig.temperature}
-                        onChange={(e) => setAiConfig((prev) => ({ ...prev, temperature: Number(e.target.value) }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="aiTimeoutMs" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Timeout IA (ms)</label>
-                      <input
-                        id="aiTimeoutMs"
-                        type="number"
-                        min="5000"
-                        step="1000"
-                        value={aiConfig.timeoutMs}
-                        onChange={(e) => setAiConfig((prev) => ({ ...prev, timeoutMs: Number(e.target.value) }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="aiMaxTokens" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Max tokens</label>
-                    <input
-                      id="aiMaxTokens"
-                      type="number"
-                      min="32"
-                      max="2048"
-                      step="1"
-                      value={aiConfig.maxTokens}
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, maxTokens: Number(e.target.value) }))}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="aiSystemPrompt" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Prompt de sistema</label>
-                    <textarea
-                      id="aiSystemPrompt"
-                      rows={3}
-                      value={aiConfig.systemPrompt}
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, systemPrompt: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem', resize: 'vertical' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="aiUserPrompt" style={{ display: 'block', marginBottom: '4px', fontSize: '0.8rem', color: '#ccc' }}>Prompt de usuario (usar {`{{text}}`})</label>
-                    <textarea
-                      id="aiUserPrompt"
-                      rows={3}
-                      value={aiConfig.userPromptTemplate}
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, userPromptTemplate: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '0.85rem', resize: 'vertical' }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={checkAiHealth}
-                      disabled={checkingAiHealth}
-                      aria-busy={checkingAiHealth}
-                      style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      {checkingAiHealth ? <><span className="buttonSpinner" aria-hidden="true" /><span>Probando...</span></> : <><TestIcon size={14} style={{ marginRight: '6px' }} /> Probar Conexión</>}
-                    </button>
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={saveAiConfig}
-                      disabled={savingAiConfig}
-                      aria-busy={savingAiConfig}
-                      style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      {savingAiConfig ? <><span className="buttonSpinner" aria-hidden="true" /><span>Guardando...</span></> : <><SaveIcon size={14} style={{ marginRight: '6px' }} /> Guardar IA</>}
-                    </button>
-                  </div>
-
-                  {aiHealth ? (
-                    <p className={`notice ${aiHealth.ok ? "success" : "error"}`} style={{ margin: '8px 0 0 0', padding: '8px', fontSize: '0.8rem', borderRadius: '6px' }}>{aiHealth.message}</p>
-                  ) : null}
-                </div>
-              </details>
-            </div>
-
-            {/* Logout Footer Section */}
-            <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                type="button"
+                className={`settingsSidebarTab ${activeSettingsTab === 'ai' ? 'active' : ''}`}
+                onClick={() => setActiveSettingsTab('ai')}
+              >
+                ✨ Asistente de IA
+              </button>
+              <button
+                type="button"
+                className={`settingsSidebarTab ${activeSettingsTab === 'shortcuts' ? 'active' : ''}`}
+                onClick={() => setActiveSettingsTab('shortcuts')}
+              >
+                ⌨️ Atajos y Teclas
+              </button>
+              <div style={{ flex: 1 }} />
               <button
                 type="button"
                 className="logoutBtn"
@@ -4633,30 +4119,428 @@ function App() {
                 }}
                 style={{
                   width: '100%',
-                  padding: '11px',
-                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
                   background: 'rgba(239, 68, 68, 0.1)',
                   border: '1px solid rgba(239, 68, 68, 0.3)',
                   color: '#ef4444',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  textAlign: 'center',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                  gap: '6px'
                 }}
               >
-                <LogoutIcon size={16} /> Cerrar Sesión Activa
+                <LogoutIcon size={14} /> Cerrar Sesión
               </button>
+            </aside>
+
+            {/* Main Content Area */}
+            <div className="settingsMainWrapper">
+              <div className="settingsContentPane">
+                
+                {/* Float Close button (Discord style Esc button) */}
+                <button
+                  type="button"
+                  className="settingsCloseButton"
+                  onClick={() => setShowProfileMenu(false)}
+                  title="Cerrar (Esc)"
+                  aria-label="Cerrar configuración"
+                >
+                  <div className="settingsCloseButtonCircle">✕</div>
+                  <span className="settingsCloseButtonText">Esc</span>
+                </button>
+
+                {/* Tab Content: Profile Settings */}
+                {activeSettingsTab === 'profile' && (
+                  <>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Mi Cuenta</h2>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div
+                        style={{
+                          width: '64px',
+                          height: '64px',
+                          borderRadius: '50%',
+                          background: (userAvatarUrlInput || currentUser?.avatarUrl) ? 'transparent' : getAvatarGradient(currentUser?.avatarColor || currentUser?.id || 'me'),
+                          color: '#fff',
+                          fontWeight: '700',
+                          border: '2.5px solid #fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.3rem',
+                          boxShadow: '0 0 12px rgba(255,255,255,0.25)',
+                          flexShrink: 0,
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {(userAvatarUrlInput || currentUser?.avatarUrl) ? (
+                          <img src={userAvatarUrlInput || currentUser?.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          (currentUser?.username || "Yo").slice(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <div style={{ overflow: 'hidden' }}>
+                        <div style={{ fontWeight: '700', color: '#fff', fontSize: '1.2rem' }}>{currentUser?.username || 'Usuario'}</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>{currentUser?.email || 'sin-correo@tapchat.com'}</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="userAvatarUploadInput" style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#ccc' }}>Foto de Perfil Personalizada</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input
+                          id="userAvatarUploadInput"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setUserAvatarUrlInput(reader.result);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          style={{ display: 'none' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('userAvatarUploadInput').click()}
+                          className="secondary small"
+                        >
+                          <AttachmentIcon size={14} /> Subir Foto
+                        </button>
+                        {(userAvatarUrlInput || currentUser?.avatarUrl) && (
+                          <button
+                            type="button"
+                            onClick={() => setUserAvatarUrlInput("")}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              color: '#ef4444',
+                              fontSize: '0.8rem',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <CloseIcon size={12} /> Eliminar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="userUsernameInput">Nombre de Usuario</label>
+                      <input
+                        id="userUsernameInput"
+                        type="text"
+                        value={userUsernameInput}
+                        onChange={(e) => setUserUsernameInput(e.target.value)}
+                        placeholder="Nombre de usuario"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="userEmailInput">Correo Electrónico</label>
+                      <input
+                        id="userEmailInput"
+                        type="email"
+                        value={userEmailInput}
+                        onChange={(e) => setUserEmailInput(e.target.value)}
+                        placeholder="tu@correo.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="userPasswordInput">Nueva Contraseña (dejar en blanco para no cambiar)</label>
+                      <input
+                        id="userPasswordInput"
+                        type="password"
+                        value={userPasswordInput}
+                        onChange={(e) => setUserPasswordInput(e.target.value)}
+                        placeholder="••••••••"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="userBioInput">Estado / Biografía</label>
+                      <input
+                        id="userBioInput"
+                        type="text"
+                        value={userBioInput}
+                        onChange={(e) => setUserBioInput(e.target.value)}
+                        placeholder="¡Hola! Estoy usando Tapchat."
+                      />
+                    </div>
+
+                    <div>
+                      <label>Color de Avatar Personalizado</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                        {[
+                          '#ff6f24',
+                          '#0284c7',
+                          '#16a34a',
+                          '#7c3aed',
+                          '#db2777',
+                          '#ef4444',
+                          '#0f172a',
+                          '#f59e0b'
+                        ].map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setUserAvatarColorInput(color)}
+                            aria-label={"Seleccionar color " + color}
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '50%',
+                              background: color,
+                              border: userAvatarColorInput === color ? '2px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              transform: userAvatarColorInput === color ? 'scale(1.2)' : 'none',
+                              boxShadow: userAvatarColorInput === color ? '0 0 10px rgba(255,255,255,0.6)' : 'none',
+                              padding: 0
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <input
+                        id="userAvatarColorInput"
+                        type="text"
+                        value={userAvatarColorInput}
+                        onChange={(e) => setUserAvatarColorInput(e.target.value)}
+                        placeholder="Ej. #ff6f24, hsl(200, 70%, 40%)"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={saveUserProfile}
+                      style={{ width: '100%', marginTop: '10px' }}
+                    >
+                      Guardar Cambios de Perfil
+                    </button>
+                  </>
+                )}
+
+                {/* Tab Content: AI Settings */}
+                {activeSettingsTab === 'ai' && (
+                  <>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>Ajustes del Asistente de IA</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '16px' }}>Configure la conexión con su servidor LM Studio local o cuenta de Cloudflare AI.</p>
+
+                    <div>
+                      <label htmlFor="aiProvider">Proveedor de IA</label>
+                      <select
+                        id="aiProvider"
+                        value={aiConfig.provider}
+                        onChange={(e) => setAiConfig((prev) => ({ ...prev, provider: e.target.value }))}
+                      >
+                        <option value="lmstudio">LM Studio (Local)</option>
+                        <option value="cloudflare">Cloudflare AI</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="aiEndpoint">Endpoint Activo</label>
+                      <input id="aiEndpoint" value={aiConfig.aiBaseUrl} readOnly style={{ opacity: 0.6 }} />
+                    </div>
+
+                    {aiConfig.provider === "lmstudio" ? (
+                      <div>
+                        <label htmlFor="lmStudioBaseUrl">URL de LM Studio</label>
+                        <input
+                          id="lmStudioBaseUrl"
+                          value={aiConfig.lmStudioBaseUrl}
+                          onChange={(e) => setAiConfig((prev) => ({ ...prev, lmStudioBaseUrl: e.target.value }))}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label htmlFor="cfAccountId">Cloudflare Account ID</label>
+                          <input
+                            id="cfAccountId"
+                            value={aiConfig.cloudflareAccountId}
+                            onChange={(e) => setAiConfig((prev) => ({ ...prev, cloudflareAccountId: e.target.value }))}
+                          />
+                        </div>
+
+                        <div>
+                          <label htmlFor="cfApiToken">Cloudflare API Token</label>
+                          <div className="passwordInputWrapper" style={{ position: 'relative' }}>
+                            <input
+                              id="cfApiToken"
+                              type={showCloudflareToken ? "text" : "password"}
+                              value={aiConfig.cloudflareApiToken}
+                              onChange={(e) => setAiConfig((prev) => ({ ...prev, cloudflareApiToken: e.target.value }))}
+                              style={{ paddingRight: '40px' }}
+                            />
+                            <button
+                              type="button"
+                              className="passwordToggleBtn"
+                              onClick={() => setShowCloudflareToken(!showCloudflareToken)}
+                              aria-label={showCloudflareToken ? "Ocultar Token" : "Mostrar Token"}
+                              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.6)', minWidth: '40px', minHeight: '40px' }}
+                            >
+                              {showCloudflareToken ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="cfBaseUrl">Cloudflare Base URL (Opcional)</label>
+                          <input
+                            id="cfBaseUrl"
+                            value={aiConfig.cloudflareBaseUrl}
+                            onChange={(e) => setAiConfig((prev) => ({ ...prev, cloudflareBaseUrl: e.target.value }))}
+                            placeholder="https://api.cloudflare.com/client/v4/accounts/{account_id}/ai"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div>
+                      <label htmlFor="aiModel">Modelo de Lenguaje</label>
+                      <select
+                        id="aiModel"
+                        value={aiConfig.modelName}
+                        onChange={(e) => setAiConfig((prev) => ({ ...prev, modelName: e.target.value }))}
+                        style={{ marginBottom: '8px' }}
+                      >
+                        <option value="">Seleccionar modelo detectado...</option>
+                        {aiModels.map((model) => (
+                          <option key={model} value={model}>{model}</option>
+                        ))}
+                      </select>
+                      <input
+                        id="aiModelInput"
+                        value={aiConfig.modelName}
+                        onChange={(e) => setAiConfig((prev) => ({ ...prev, modelName: e.target.value }))}
+                        placeholder="O escriba el nombre del modelo manualmente..."
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label htmlFor="aiTemperature">Temperatura</label>
+                        <input
+                          id="aiTemperature"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="2"
+                          value={aiConfig.temperature}
+                          onChange={(e) => setAiConfig((prev) => ({ ...prev, temperature: Number(e.target.value) }))}
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="aiTimeoutMs">Timeout IA (ms)</label>
+                        <input
+                          id="aiTimeoutMs"
+                          type="number"
+                          min="5000"
+                          step="1000"
+                          value={aiConfig.timeoutMs}
+                          onChange={(e) => setAiConfig((prev) => ({ ...prev, timeoutMs: Number(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="aiMaxTokens">Máximo de Tokens</label>
+                      <input
+                        id="aiMaxTokens"
+                        type="number"
+                        min="32"
+                        value={aiConfig.maxTokens}
+                        onChange={(e) => setAiConfig((prev) => ({ ...prev, maxTokens: Number(e.target.value) }))}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="aiSystemPrompt">Prompt de Sistema (Instrucciones)</label>
+                      <textarea
+                        id="aiSystemPrompt"
+                        rows={3}
+                        value={aiConfig.systemPrompt}
+                        onChange={(e) => setAiConfig((prev) => ({ ...prev, systemPrompt: e.target.value }))}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={checkAiHealth}
+                        disabled={checkingAiHealth}
+                        style={{ flex: 1 }}
+                      >
+                        {checkingAiHealth ? <span className="spinner" /> : <><TestIcon size={14} /> Probar Conexión</>}
+                      </button>
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={saveAiConfig}
+                        disabled={savingAiConfig}
+                        style={{ flex: 1 }}
+                      >
+                        {savingAiConfig ? <span className="spinner" /> : <><SaveIcon size={14} /> Guardar Ajustes</>}
+                      </button>
+                    </div>
+
+                    {aiHealth && (
+                      <p className={`notice ${aiHealth.ok ? "success" : "error"}`} style={{ marginTop: '12px' }}>{aiHealth.message}</p>
+                    )}
+                  </>
+                )}
+
+                {/* Tab Content: Shortcuts */}
+                {activeSettingsTab === 'shortcuts' && (
+                  <>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Atajos de Teclado</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '16px' }}>Use atajos rápidos para navegar eficientemente por la interfaz de Tapchat.</p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ fontWeight: '500', color: '#eee' }}>Buscar chats / usuarios</span>
+                        <kbd style={{ background: '#1e1f22', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', color: 'var(--accent-primary)', border: '1px solid rgba(255, 111, 36, 0.3)', fontWeight: 'bold' }}>Ctrl + K</kbd>
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ fontWeight: '500', color: '#eee' }}>Siguiente Chat</span>
+                        <kbd style={{ background: '#1e1f22', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', color: '#eee', border: '1px solid rgba(255,255,255,0.1)' }}>Alt + ↓</kbd>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ fontWeight: '500', color: '#eee' }}>Chat Anterior</span>
+                        <kbd style={{ background: '#1e1f22', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', color: '#eee', border: '1px solid rgba(255,255,255,0.1)' }}>Alt + ↑</kbd>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '500', color: '#eee' }}>Cerrar Modales / Ajustes</span>
+                        <kbd style={{ background: '#1e1f22', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', color: '#eee', border: '1px solid rgba(255,255,255,0.1)' }}>Esc</kbd>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+              </div>
             </div>
+
           </div>
         </section>
       )}
