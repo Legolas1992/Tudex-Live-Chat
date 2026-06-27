@@ -297,6 +297,16 @@ io.on('connection', (socket) => {
       socket.emit('ready', { status: 'authenticated', provider: providerName, accountId: socket.userId || DEFAULT_ACCOUNT_ID });
     }
   }
+
+  socket.on('chat_state', (payload) => {
+    if (payload && payload.chatId) {
+      socket.to(payload.chatId).emit('chat_state', {
+        chatId: socket.userId,
+        state: payload.state,
+        senderId: socket.userId
+      });
+    }
+  });
 });
 
 app.use(cors({
