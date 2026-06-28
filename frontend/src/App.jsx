@@ -4287,6 +4287,20 @@ function App() {
                       boxShadow: '0 0 8px rgba(255,255,255,0.4)',
                       transition: 'all 0.2s ease',
                       padding: 0,
+                      flexShrink: 0,
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {currentUser?.avatarUrl ? (
+                      <img src={currentUser.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      (currentUser?.username || "Yo").slice(0, 2).toUpperCase()
+                    )}
+                  </button>
+                )}
+              </div>
+            </header>
+
             {inVoiceCall && voiceRoomId === selectedChatId && (
               <div style={{ display: 'flex', flexDirection: 'column', width: '100%', zIndex: 10 }}>
                 <div style={{
