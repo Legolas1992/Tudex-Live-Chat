@@ -14,6 +14,7 @@
 * **Heartbeat Presence/Sync indicators**: Transformed background sync feedback from a discrete text indicator to a premium infinite linear progress line (`tapchat-sync-shimmer`) directly on the chatHeader.
 * **Pulsing Skeleton screens**: Implemented CSS classes `.skeleton-msg` inside `App.css` (which were rendered but never styled). Added alternate sent/received positions and shimmer effects to smooth the layout shift on chat load.
 * **Message Delivery Status (Acks) Styles**: Styled `.ackSingle`, `.ackDouble`, `.ackDoubleBlue`, and `.ackClock` inside `App.css` (which were rendered in `App.jsx` but completely unstyled). This displays clear, WhatsApp-style ticks for sent, delivered, read, and sending states.
+* **Consecutive message grouping**: Integrated custom `.consecutive` bubble row overrides in `App.css`. Reduced margin-top spacing to `2px` and sharpened corners dynamically (top-right for outgoing, top-left for incoming consecutive messages) to match modern group message layouts.
 
 ## 3. Technical Debt & Warnings
 * **ICE Server Constraints**: Currently uses public Google STUN servers (`stun:stun.l.google.com:19302`). For reliable deployment across symmetric NATs, a TURN server (e.g. Coturn) must be configured in `App.jsx` iceServers.
