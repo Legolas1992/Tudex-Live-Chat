@@ -2324,3 +2324,36 @@ select {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+
+/* Message Ack Status Icons */
+.ackSingle, .ackDouble, .ackDoubleBlue, .ackClock {
+  font-size: 0.75rem;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  font-weight: bold;
+}
+
+.ackSingle {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.ackDouble {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.ackDoubleBlue {
+  color: #3b82f6; /* WhatsApp style double blue check */
+  text-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+.ackClock {
+  color: rgba(255, 255, 255, 0.45);
+  animation: rotation 2s infinite linear;
+}
+
+@keyframes rotation {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
