@@ -1228,11 +1228,20 @@ function App() {
       if (isAppBackgrounded || !isCurrentChat) {
         if ("Notification" in window && Notification.permission === "granted") {
           try {
-            new Notification(`Tapchat - ${senderName}`, {
+            const title = `Tapchat - ${senderName}`;
+            const options = {
               body: previewText,
-              icon: 'https://cdn-icons-png.flaticon.com/512/3616/3616223.png',
-              tag: msg.chatId
-            });
+              icon: '/pwa-192x192.png',
+              tag: msg.chatId,
+              data: { chatId: msg.chatId }
+            };
+            if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+              navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(title, options);
+              });
+            } else {
+              new Notification(title, options);
+            }
           } catch (e) {
             console.error("Error creating browser notification:", e);
           }
@@ -1320,6 +1329,16 @@ function App() {
       window.removeEventListener("pwa_update_available", handlePwaUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (apiAuthenticated && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          showNotice("🔔 ¡Notificaciones nativas del sistema activadas!", "success");
+        }
+      });
+    }
+  }, [apiAuthenticated]);
 
 
   const checkAuth = async (key) => {
@@ -4682,7 +4701,7 @@ function App() {
                       />
                     </div>
 
-                    <button
+                     <button
                       type="button"
                       className="primary"
                       onClick={saveUserProfile}
@@ -4690,6 +4709,40 @@ function App() {
                     >
                       Guardar Cambios de Perfil
                     </button>
+
+                    <div style={{ marginTop: '20px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <h4 style={{ color: '#fff', fontSize: '0.95rem', fontWeight: '600', marginBottom: '8px' }}>Notificaciones del Sistema</h4>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '12px', lineHeight: '1.4' }}>
+                        Permite a la PWA enviar alertas nativas del sistema operativo en segundo plano.
+                      </p>
+                      {("Notification" in window) ? (
+                        Notification.permission === "granted" ? (
+                          <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            ✓ Notificaciones nativas activadas
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => {
+                              Notification.requestPermission().then(permission => {
+                                if (permission === "granted") {
+                                  showNotice("🔔 ¡Notificaciones nativas del sistema activadas!", "success");
+                                  window.location.reload();
+                                } else {
+                                  showNotice("No se pudieron activar las notificaciones. Por favor revise los permisos del navegador.", "error");
+                                }
+                              });
+                            }}
+                            style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+                          >
+                            Activar Notificaciones Nativa
+                          </button>
+                        )
+                      ) : (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--error)' }}>Tu sistema operativo no soporta notificaciones de escritorio.</span>
+                      )}
+                    </div>
                   </>
                 )}
 
