@@ -495,6 +495,7 @@ const UserSchema = new mongoose.Schema({
   avatarUrl: { type: String, default: '' },
   bio: { type: String, default: '¡Hola! Estoy usando Tapchat.' },
   status: { type: String, default: 'online' },
+  publicKey: { type: String, default: '' },
   latitude: { type: Number },
   longitude: { type: Number },
   followedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
@@ -707,7 +708,8 @@ app.post('/api/auth/login', async (req, res) => {
         email: user.email,
         avatarColor: user.avatarColor,
         avatarUrl: user.avatarUrl || '',
-        bio: user.bio
+        bio: user.bio,
+        publicKey: user.publicKey || ''
       }
     });
   } catch (err) {
@@ -732,7 +734,7 @@ app.post('/api/auth/logout', async (req, res) => {
 // Profile Update endpoint
 app.put('/api/auth/profile', async (req, res) => {
   try {
-    const { username, email, password, bio, avatarColor, avatarUrl } = req.body;
+    const { username, email, password, bio, avatarColor, avatarUrl, publicKey } = req.body;
     
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -780,6 +782,7 @@ app.put('/api/auth/profile', async (req, res) => {
     if (bio !== undefined) user.bio = String(bio).trim();
     if (avatarColor !== undefined) user.avatarColor = String(avatarColor).trim();
     if (avatarUrl !== undefined) user.avatarUrl = String(avatarUrl).trim();
+    if (publicKey !== undefined) user.publicKey = String(publicKey).trim();
 
     await user.save();
 
@@ -791,12 +794,24 @@ app.put('/api/auth/profile', async (req, res) => {
         email: user.email,
         avatarColor: user.avatarColor,
         avatarUrl: user.avatarUrl || '',
-        bio: user.bio
+        bio: user.bio,
+        publicKey: user.publicKey || ''
       }
     });
   } catch (err) {
     console.error('Profile update error:', err);
     res.status(500).json({ error: 'Error al actualizar el perfil.' });
+  }
+});
+
+// Get User public key endpoint
+app.get('/api/users/:userId/public-key', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('publicKey').lean();
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ publicKey: user.publicKey || '' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener llave pública' });
   }
 });
 
@@ -822,7 +837,7 @@ app.get('/api/users/search', async (req, res) => {
     // ⚡ Bolt: Using .lean() to bypass Mongoose document instantiation, returning plain JS objects
     // for significantly lower memory usage and faster read performance.
     const users = await User.find(filter)
-      .select('_id username email avatarColor avatarUrl bio status')
+      .select('_id username email avatarColor avatarUrl bio status publicKey')
       .limit(20)
       .lean();
 
@@ -861,7 +876,7 @@ app.get('/api/users/proximity', async (req, res) => {
     const allUsers = await User.find({
       _id: { $ne: req.user._id },
       username: { $ne: 'admin' }
-    }).select('_id username email avatarColor avatarUrl bio status latitude longitude').lean();
+    }).select('_id username email avatarColor avatarUrl bio status publicKey latitude longitude').lean();
 
     const mapped = allUsers.map(u => {
       const lat = u.latitude || (40.4167 + (Math.random() - 0.5) * 0.08);
@@ -874,6 +889,7 @@ app.get('/api/users/proximity', async (req, res) => {
         avatarColor: u.avatarColor,
         avatarUrl: u.avatarUrl || '',
         bio: u.bio,
+        publicKey: u.publicKey || '',
         status: u.status,
         distanceMeters: distance !== null ? Math.round(distance) : null,
         isFollowed: Array.isArray(req.user.followedUsers) && req.user.followedUsers.some(id => String(id) === String(u._id))
@@ -1062,7 +1078,8 @@ app.get('/api/check-auth', (req, res) => {
       email: req.user.email,
       avatarColor: req.user.avatarColor,
       avatarUrl: req.user.avatarUrl || '',
-      bio: req.user.bio
+      bio: req.user.bio,
+      publicKey: req.user.publicKey || ''
     }
   });
 });
@@ -2608,6 +2625,52 @@ function ensureProviderReady(res, provider) {
   }
   return true;
 }
+
+// TURN credentials endpoint for WebRTC
+app.get('/api/turn-credentials', (req, res) => {
+  const turnUrl = process.env.TURN_URL || '';
+  const turnSecret = process.env.TURN_SECRET || '';
+  const turnUsername = process.env.TURN_USERNAME || 'tapchat';
+
+  if (!turnUrl) {
+    return res.json({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+  }
+
+  const urls = turnUrl.split(',').map(u => u.trim());
+
+  if (!turnSecret) {
+    const staticPassword = process.env.TURN_STATIC_PASSWORD || '';
+    return res.json({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+          urls,
+          username: turnUsername,
+          credential: staticPassword
+        }
+      ]
+    });
+  }
+
+  const expiry = Math.floor(Date.now() / 1000) + 86400;
+  const tempUsername = `${expiry}:${turnUsername}`;
+  const hmac = crypto.createHmac('sha1', turnSecret);
+  hmac.update(tempUsername);
+  const tempPassword = hmac.digest('base64');
+
+  res.json({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      {
+        urls,
+        username: tempUsername,
+        credential: tempPassword
+      }
+    ]
+  });
+});
 
 // AI API endpoint
 app.post('/api/correct', async (req, res) => {

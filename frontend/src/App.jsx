@@ -8,8 +8,19 @@ import {
   setCachedMessages,
   clearCache,
   getOfflineQueue,
-  setOfflineQueue
+  setOfflineQueue,
+  readEntry,
+  writeEntry
 } from "./cacheStore";
+import {
+  generateE2eeKeypair,
+  exportPublicKey,
+  exportPrivateKey,
+  importPrivateKey,
+  encryptMessage,
+  decryptMessage
+} from "./crypto";
+import { VirtualMessageList } from "./components/VirtualMessageList";
 
 const defaultApiUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3005";
 
@@ -560,6 +571,66 @@ function App() {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
+  const privateKeyRef = useRef(null);
+  const [e2eeReady, setE2eeReady] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser || !currentUser.id) {
+      privateKeyRef.current = null;
+      setE2eeReady(false);
+      return;
+    }
+
+    async function initE2ee() {
+      try {
+        const userId = currentUser.id;
+        const pubKeyEntry = await readEntry(`e2ee:${userId}:publicKey`);
+        const privKeyEntry = await readEntry(`e2ee:${userId}:privateKey`);
+
+        let pubKeyBase64 = pubKeyEntry?.value;
+        let privKeyBase64 = privKeyEntry?.value;
+
+        if (!pubKeyBase64 || !privKeyBase64) {
+          console.log("[E2EE] Keys not found locally. Generating new keypair...");
+          const pair = await generateE2eeKeypair();
+          pubKeyBase64 = await exportPublicKey(pair.publicKey);
+          privKeyBase64 = await exportPrivateKey(pair.privateKey);
+
+          await writeEntry(`e2ee:${userId}:publicKey`, pubKeyBase64);
+          await writeEntry(`e2ee:${userId}:privateKey`, privKeyBase64);
+          privateKeyRef.current = pair.privateKey;
+        } else {
+          privateKeyRef.current = await importPrivateKey(privKeyBase64);
+        }
+
+        if (!currentUser.publicKey || currentUser.publicKey !== pubKeyBase64) {
+          console.log("[E2EE] Syncing public key with backend...");
+          const res = await fetch(`${API_URL}/api/auth/profile`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${localStorage.getItem("tapchat_token")}`
+            },
+            body: JSON.stringify({ publicKey: pubKeyBase64 })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.user) {
+              setCurrentUser(data.user);
+              localStorage.setItem("tapchat_cached_user", JSON.stringify(data.user));
+            }
+          }
+        }
+        setE2eeReady(true);
+        console.log("[E2EE] Cryptographic engine initialized successfully.");
+      } catch (err) {
+        console.error("[E2EE] Key initialization error:", err);
+      }
+    }
+
+    initE2ee();
+  }, [currentUser?.id]);
+
   useEffect(() => {
     chatsRef.current = chats;
   }, [chats]);
@@ -567,6 +638,31 @@ function App() {
   useEffect(() => {
     selectedChatIdRef.current = selectedChatId;
   }, [selectedChatId]);
+
+  const activeChatPublicKeyRef = useRef(null);
+
+  useEffect(() => {
+    activeChatPublicKeyRef.current = null;
+    if (!selectedChatId || !apiAuthenticated) return;
+    if (selectedChatId === 'ai_assistant' || selectedChat?.isGroup) return;
+
+    async function getChatPublicKey() {
+      try {
+        const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(selectedChatId)}/public-key`, {
+          headers: { "Authorization": `Bearer ${localStorage.getItem("tapchat_token")}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          activeChatPublicKeyRef.current = data.publicKey || null;
+          console.log(`[E2EE] Public key loaded for chat partner: ${selectedChatId} (${data.publicKey ? 'Found' : 'Not Found'})`);
+        }
+      } catch (err) {
+        console.warn("[E2EE] Failed to load chat partner public key:", err.message);
+      }
+    }
+    getChatPublicKey();
+  }, [selectedChatId, selectedChat, apiAuthenticated]);
+
   const [authMode, setAuthMode] = useState("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -715,7 +811,7 @@ function App() {
 
   function createPeerConnection(peerSocketId, peerInfo, isOfferOriginator) {
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: iceServersRef.current
     });
 
     peerConnectionsRef.current.set(peerSocketId, pc);
@@ -769,6 +865,7 @@ function App() {
   async function joinVoiceRoom(roomId, isAccepting = false) {
     if (!roomId) return;
     try {
+      await fetchIceServers();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStreamRef.current = stream;
       setLocalStream(stream);
@@ -1483,9 +1580,19 @@ function App() {
     runGrammarQueue();
   }
 
-  function mergeLiveMessage(msg) {
+  async function mergeLiveMessage(msg) {
     if (!msg?.chatId) return;
-    const normalized = { ...msg, _uiId: messageId(msg) };
+    
+    let decryptedBody = msg.body;
+    if (msg.body && msg.body.includes('"e2ee":true') && privateKeyRef.current) {
+      try {
+        decryptedBody = await decryptMessage(msg.body, privateKeyRef.current);
+      } catch (e) {
+        decryptedBody = "[Mensaje Cifrado - Error de descifrado]";
+      }
+    }
+
+    const normalized = { ...msg, body: decryptedBody, _uiId: messageId(msg) };
     
     const isCurrentChat = selectedChatIdRef.current === msg.chatId;
     const isAppBackgrounded = document.hidden;
@@ -2159,6 +2266,22 @@ function App() {
           const chat = chatsRef.current.find(c => c.id === targetChatId);
           const chatProvider = targetChatId === 'ai_assistant' ? 'local' : (chat?.provider || 'local');
 
+          let textToSend = action.body || action.payload?.text;
+          if (targetChatId !== 'ai_assistant' && !chat?.isGroup) {
+            try {
+              const keyRes = await fetch(`${API_URL}/api/users/${encodeURIComponent(targetChatId)}/public-key`);
+              if (keyRes.ok) {
+                const keyData = await keyRes.json();
+                if (keyData.publicKey) {
+                  console.log("[E2EE] Encrypting offline queued message...");
+                  textToSend = await encryptMessage(textToSend, keyData.publicKey);
+                }
+              }
+            } catch (e) {
+              console.warn("[E2EE] Failed to get key during offline sync", e);
+            }
+          }
+
           res = await fetch(`${API_URL}/api/send`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2166,7 +2289,7 @@ function App() {
               provider: chatProvider,
               accountId,
               chatId: targetChatId,
-              text: action.body || action.payload?.text,
+              text: textToSend,
               originalText: action.originalText || action.payload?.originalText || action.body || action.payload?.text,
               replyToMessageId: action.replyToMessageId || action.payload?.replyToMessageId || ""
             })
@@ -2395,6 +2518,24 @@ function App() {
     }
   }
 
+  async function decryptMessageList(msgList) {
+    if (!privateKeyRef.current) return msgList;
+    const decrypted = [];
+    for (const msg of msgList) {
+      if (msg.body && msg.body.includes('"e2ee":true')) {
+        try {
+          const decryptedBody = await decryptMessage(msg.body, privateKeyRef.current);
+          decrypted.push({ ...msg, body: decryptedBody });
+        } catch (e) {
+          decrypted.push({ ...msg, body: "[Mensaje Cifrado - Error de descifrado]" });
+        }
+      } else {
+        decrypted.push(msg);
+      }
+    }
+    return decrypted;
+  }
+
   async function fetchMessages(chatId, options = {}) {
     const { withLoader = true, background = false } = options;
     if (!chatId) return;
@@ -2406,8 +2547,9 @@ function App() {
       if (!background) {
         const cachedMessages = await getCachedMessages("local", currentUser?.id || DEFAULT_ACCOUNT_ID, chatId);
         if (cachedMessages.length > 0 && selectedChatIdRef.current === chatId) {
-          setMessages(cachedMessages);
-          setMessagesByChat((prev) => ({ ...prev, [chatId]: cachedMessages }));
+          const decryptedCached = await decryptMessageList(cachedMessages);
+          setMessages(decryptedCached);
+          setMessagesByChat((prev) => ({ ...prev, [chatId]: decryptedCached }));
           if (withLoader) setLoadingMessages(prev => ({ ...prev, [chatId]: false }));
         }
       }
@@ -2439,16 +2581,17 @@ function App() {
         .map((msg) => ({ ...msg, _uiId: messageId(msg) }))
         .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
 
-      setMessagesByChat((prev) => ({ ...prev, [chatId]: safeMessages }));
-      await setCachedMessages("local", currentUser?.id || DEFAULT_ACCOUNT_ID, chatId, safeMessages);
+      const decryptedMessages = await decryptMessageList(safeMessages);
+
+      setMessagesByChat((prev) => ({ ...prev, [chatId]: decryptedMessages }));
+      await setCachedMessages("local", currentUser?.id || DEFAULT_ACCOUNT_ID, chatId, decryptedMessages);
       if (selectedChatIdRef.current === chatId) {
         setMessages(prev => {
-          // Keep optimistic messages that haven't been confirmed yet by the backend
           const pendingOptimistic = prev.filter(m =>
             (m.status === 'sending' || m.status === 'offline_pending') &&
-            !safeMessages.some(sm => sm.body === m.body && sm.fromMe && sm.status !== 'sending')
+            !decryptedMessages.some(sm => sm.body === m.body && sm.fromMe && sm.status !== 'sending')
           );
-          return [...safeMessages, ...pendingOptimistic].sort(
+          return [...decryptedMessages, ...pendingOptimistic].sort(
             (a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0)
           );
         });
@@ -2542,6 +2685,16 @@ function App() {
     const provider = selectedChatId === 'ai_assistant' ? 'local' : (chat?.provider || 'local');
     const accountId = currentUser?.id || DEFAULT_ACCOUNT_ID;
 
+    let finalBody = text;
+    if (activeChatPublicKeyRef.current) {
+      try {
+        console.log("[E2EE] Encrypting message before posting...");
+        finalBody = await encryptMessage(text, activeChatPublicKeyRef.current);
+      } catch (err) {
+        console.error("[E2EE] Encryption failed, fallback to plain text:", err);
+      }
+    }
+
     try {
       const res = await fetch(`${API_URL}/api/send`, {
         method: "POST",
@@ -2550,7 +2703,7 @@ function App() {
           provider,
           accountId,
           chatId: selectedChatId,
-          text,
+          text: finalBody,
           originalText: payload?.originalText || text,
           replyToMessageId: payload?.replyToMessageId || ""
         })
@@ -4709,108 +4862,117 @@ function App() {
               </div>
             )}
 
-            <div
-              className="messagesArea"
-              ref={messagesAreaRef}
-              onScroll={handleMessagesScroll}
-            >
-              {loadingMessages[selectedChatId] && messages.length === 0 ? (
-                <>
-                  <div className="skeleton-msg"></div>
-                  <div className="skeleton-msg"></div>
-                  <div className="skeleton-msg"></div>
-                </>
-              ) : null}
-              {!loadingMessages[selectedChatId] && syncingChat && messages.length === 0 ? <p className="helper">Sincronizando...</p> : null}
-              {!loadingMessages[selectedChatId] && !syncingChat && messages.length === 0 ? (
-                <p className="helper">Este chat todavía no tiene mensajes visibles.</p>
-              ) : null}
-
-              {messages.map((msg, idx) => {
-                const prevMsg = messages[idx - 1];
-                const isConsecutive = prevMsg && prevMsg.fromMe === msg.fromMe;
-                return (
-                <div key={msg._uiId} className={`bubbleRow ${msg.fromMe ? "mine" : "theirs"} ${isConsecutive ? "consecutive" : ""} ${msg.isRevoked ? "revokedRow" : ""}`}>
-                  <article
-                    className={`bubble ${
-                      !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "incomingGrammarError" : ""
-                    } ${msg.isRevoked ? "isRevoked" : ""} ${msg.status === 'offline_pending' ? "is-offline" : ""}`}
-                    tabIndex={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? 0 : undefined}
-                    role={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "button" : undefined}
-                    aria-label={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "Mensaje con errores gramaticales. Presionar para responder con corrección." : undefined}
-                    onClick={
-                      !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors
-                        ? () => prepareGrammarReply(msg)
-                        : undefined
-                    }
-                    onKeyDown={
-                      !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors
-                        ? (e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              prepareGrammarReply(msg);
-                            }
-                          }
-                        : undefined
-                    }
-                  >
-                    {msg.replyToText ? (
-                      <div className="replyPreview">
-                        <span className="replyLabel">Respuesta a</span>
-                        <p>{msg.replyToText}</p>
-                      </div>
-                    ) : null}
-                    {!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? (
-                      <span className="grammarErrorBadge">Posibles errores gramaticales · Presionar para responder</span>
-                    ) : null}
-                    {!msg.fromMe && Array.isArray(msg.mentionedIds) && msg.mentionedIds.length > 0 ? (
-                      <span className="pingBadge">Ping</span>
-                    ) : null}
-                    {msg.isRevoked ? (
-                      <div className="revokedNotice">🗑️ Mensaje eliminado</div>
-                    ) : null}
-                    {msg.mediaType === "image" && (msg.imageDataUrl || msg.mediaUrl) ? (
-                      <img className="msgImage" src={msg.mediaUrl ? `${API_URL}${msg.mediaUrl}` : msg.imageDataUrl} alt="Imagen del chat" />
-                    ) : null}
-                    {msg.mediaType === "video" && msg.mediaUrl ? (
-                      <video className="msgVideo" src={`${API_URL}${msg.mediaUrl}`} controls />
-                    ) : null}
-                    {msg.mediaType === "audio" && msg.mediaUrl ? (
-                      <audio className="msgAudio" src={`${API_URL}${msg.mediaUrl}`} controls />
-                    ) : null}
-                    <p className={msg.isRevoked ? "revokedText" : ""}>{msg.body || "[mensaje vacío]"}</p>
-                    <div className="bubbleMeta">
-                      <time>{formatTime(msg.timestamp)}</time>
-                      {msg.fromMe && <AckIcon status={msg.status || msg.ack} />}
-                    </div>
-                    <div className="bubbleActions">
-                      <button
-                        className="replyBtn"
-                        aria-label="Responder a este mensaje"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startReply(msg);
-                        }}
+            {messages.length === 0 ? (
+              <div
+                className="messagesArea"
+                ref={messagesAreaRef}
+                onScroll={handleMessagesScroll}
+              >
+                {loadingMessages[selectedChatId] ? (
+                  <>
+                    <div className="skeleton-msg"></div>
+                    <div className="skeleton-msg"></div>
+                    <div className="skeleton-msg"></div>
+                  </>
+                ) : null}
+                {!loadingMessages[selectedChatId] && syncingChat ? <p className="helper">Sincronizando...</p> : null}
+                {!loadingMessages[selectedChatId] && !syncingChat ? (
+                  <p className="helper">Este chat todavía no tiene mensajes visibles.</p>
+                ) : null}
+              </div>
+            ) : (
+              <VirtualMessageList
+                messages={messages}
+                containerRef={messagesAreaRef}
+                onScroll={handleMessagesScroll}
+                renderMessage={(msg, idx) => {
+                  const prevMsg = messages[idx - 1];
+                  const isConsecutive = prevMsg && prevMsg.fromMe === msg.fromMe;
+                  return (
+                    <div key={msg._uiId} className={`bubbleRow ${msg.fromMe ? "mine" : "theirs"} ${isConsecutive ? "consecutive" : ""} ${msg.isRevoked ? "revokedRow" : ""}`}>
+                      <article
+                        className={`bubble ${
+                          !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "incomingGrammarError" : ""
+                        } ${msg.isRevoked ? "isRevoked" : ""} ${msg.status === 'offline_pending' ? "is-offline" : ""}`}
+                        tabIndex={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? 0 : undefined}
+                        role={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "button" : undefined}
+                        aria-label={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "Mensaje con errores gramaticales. Presionar para responder con corrección." : undefined}
+                        onClick={
+                          !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors
+                            ? () => prepareGrammarReply(msg)
+                            : undefined
+                        }
+                        onKeyDown={
+                          !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors
+                            ? (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  prepareGrammarReply(msg);
+                                }
+                              }
+                            : undefined
+                        }
                       >
-                        Responder
-                      </button>
+                        {msg.replyToText ? (
+                          <div className="replyPreview">
+                            <span className="replyLabel">Respuesta a</span>
+                            <p>{msg.replyToText}</p>
+                          </div>
+                        ) : null}
+                        {!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? (
+                          <span className="grammarErrorBadge">Posibles errores gramaticales · Presionar para responder</span>
+                        ) : null}
+                        {!msg.fromMe && Array.isArray(msg.mentionedIds) && msg.mentionedIds.length > 0 ? (
+                          <span className="pingBadge">Ping</span>
+                        ) : null}
+                        {msg.isRevoked ? (
+                          <div className="revokedNotice">🗑️ Mensaje eliminado</div>
+                        ) : null}
+                        {msg.mediaType === "image" && (msg.imageDataUrl || msg.mediaUrl) ? (
+                          <img className="msgImage" src={msg.mediaUrl ? `${API_URL}${msg.mediaUrl}` : msg.imageDataUrl} alt="Imagen del chat" />
+                        ) : null}
+                        {msg.mediaType === "video" && msg.mediaUrl ? (
+                          <video className="msgVideo" src={`${API_URL}${msg.mediaUrl}`} controls />
+                        ) : null}
+                        {msg.mediaType === "audio" && msg.mediaUrl ? (
+                          <audio className="msgAudio" src={`${API_URL}${msg.mediaUrl}`} controls />
+                        ) : null}
+                        <p className={msg.isRevoked ? "revokedText" : ""}>{msg.body || "[mensaje vacío]"}</p>
+                        <div className="bubbleMeta">
+                          <time>{formatTime(msg.timestamp)}</time>
+                          {msg.fromMe && <AckIcon status={msg.status || msg.ack} />}
+                        </div>
+                        <div className="bubbleActions">
+                          <button
+                            className="replyBtn"
+                            aria-label="Responder a este mensaje"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startReply(msg);
+                            }}
+                          >
+                            Responder
+                          </button>
+                        </div>
+                      </article>
                     </div>
-                  </article>
-                </div>
-              );})}
-              {showJumpToLatest ? (
-                <button
-                  className="jumpToLatest"
-                  aria-label="Ir al último mensaje"
-                  onClick={() => scrollMessagesToBottom("smooth")}
-                >
-                  ↓ Ir al último
-                  {pendingIncomingCount > 0 ? (
-                    <span className="jumpToLatestCount">{pendingIncomingCount}</span>
-                  ) : null}
-                </button>
-              ) : null}
-            </div>
+                  );
+                }}
+              >
+                {showJumpToLatest ? (
+                  <button
+                    className="jumpToLatest"
+                    aria-label="Ir al último mensaje"
+                    onClick={() => scrollMessagesToBottom("smooth")}
+                  >
+                    ↓ Ir al último
+                    {pendingIncomingCount > 0 ? (
+                      <span className="jumpToLatestCount">{pendingIncomingCount}</span>
+                    ) : null}
+                  </button>
+                ) : null}
+              </VirtualMessageList>
+            )}
 
             <footer className="composer">
               {replyQueue.length > 0 ? (

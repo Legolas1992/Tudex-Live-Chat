@@ -31,7 +31,7 @@ function openDb() {
   });
 }
 
-async function readEntry(key) {
+export async function readEntry(key) {
   const db = await openDb();
   if (!db) return null;
   return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ async function readEntry(key) {
   });
 }
 
-async function writeEntry(key, value) {
+export async function writeEntry(key, value) {
   const db = await openDb();
   if (!db) return;
   await new Promise((resolve, reject) => {
