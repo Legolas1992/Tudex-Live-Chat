@@ -2713,16 +2713,27 @@ app.post('/api/correct', async (req, res) => {
   }
 });
 
-app.get('/api/ai/config', async (_req, res) => {
+app.get('/api/ai/config', async (req, res) => {
   try {
+    const isAdmin = req.user && req.user.username === 'admin';
     const configResponse = {
       ...aiConfig,
       provider: getAiProvider(aiConfig),
       aiBaseUrl: getAiBaseUrl(aiConfig)
     };
+
     if (configResponse.cloudflareApiToken) {
       configResponse.cloudflareApiToken = '********';
     }
+
+    // 🛡️ Sentinel: Redact sensitive internal URLs for non-admins to prevent SSRF reconnaissance
+    if (!isAdmin) {
+      configResponse.lmStudioBaseUrl = '********';
+      configResponse.cloudflareBaseUrl = '********';
+      configResponse.cloudflareAccountId = '********';
+      configResponse.aiBaseUrl = '********';
+    }
+
     res.json(configResponse);
   } catch (error) {
     console.error('❌ Fetch AI config error:', error.message);
@@ -2732,6 +2743,11 @@ app.get('/api/ai/config', async (_req, res) => {
 
 app.put('/api/ai/config', async (req, res) => {
   try {
+    // 🛡️ Sentinel: Enforce admin authorization to prevent SSRF and broken access control
+    if (!req.user || req.user.username !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Admin access required' });
+    }
+
     const nextConfig = {
       ...aiConfig
     };

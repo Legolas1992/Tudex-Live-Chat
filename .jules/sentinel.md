@@ -17,3 +17,8 @@
 **Vulnerability:** The `parseProviderContext` function allowed users to specify arbitrary `accountId` values via request parameters or body payload without validating authorization. This resulted in an Insecure Direct Object Reference (IDOR) where any authenticated user could act as another user.
 **Learning:** In a multi-tenant or multi-account system, blindly trusting user-provided identifiers for sensitive actions (like fetching chats or sending messages) leads to authorization bypasses.
 **Prevention:** Always enforce server-side authorization checks on resource identifiers provided by clients, ensuring the authenticated user has permission to access the requested resource. Override untrusted identifiers with authenticated session data where appropriate.
+
+## 2024-06-30 - [Fix Broken Access Control and SSRF in Global AI Configuration]
+**Vulnerability:** Global configuration endpoints like `/api/ai/config` relied solely on generic authentication middleware. Any authenticated user could modify the global AI settings, including `lmStudioBaseUrl`, creating a Server-Side Request Forgery (SSRF) and Denial of Service risk for all users.
+**Learning:** To prevent Server-Side Request Forgery (SSRF) and broken access control risks, global configuration endpoints must explicitly verify the user's role rather than relying solely on generic authentication middleware.
+**Prevention:** Always explicitly check the user's role (e.g., `req.user.username === 'admin'`) for endpoints that modify or expose global system configuration.
