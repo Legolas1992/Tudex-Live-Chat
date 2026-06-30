@@ -6387,6 +6387,7 @@ function App() {
               transition: 'all 0.2s'
             }}
             title="Cancelar llamada"
+            aria-label="Cancelar llamada"
           >
             🔇
           </button>
@@ -6453,6 +6454,7 @@ function App() {
                 transition: 'all 0.2s'
               }}
               title="Aceptar llamada"
+              aria-label="Aceptar llamada"
             >
               📞
             </button>
@@ -6486,6 +6488,7 @@ function App() {
                 transition: 'all 0.2s'
               }}
               title="Rechazar llamada"
+              aria-label="Rechazar llamada"
             >
               ❌
             </button>
@@ -6539,6 +6542,8 @@ function App() {
                 fontSize: '0.9rem',
                 padding: 0
               }}
+              aria-label={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
+              title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
             >
               {isMuted ? "🔇" : "🎙️"}
             </button>
@@ -6567,6 +6572,7 @@ function App() {
                 padding: 0
               }}
               title="Maximizar"
+              aria-label="Maximizar"
             >
               🗖
             </button>
@@ -6589,6 +6595,7 @@ function App() {
                 padding: 0
               }}
               title="Desconectar"
+              aria-label="Desconectar"
             >
               📞
             </button>
