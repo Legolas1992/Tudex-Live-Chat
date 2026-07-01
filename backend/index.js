@@ -2713,7 +2713,7 @@ app.post('/api/correct', async (req, res) => {
   }
 });
 
-app.get('/api/ai/config', async (_req, res) => {
+app.get('/api/ai/config', async (req, res) => {
   try {
     const configResponse = {
       ...aiConfig,
@@ -2722,6 +2722,12 @@ app.get('/api/ai/config', async (_req, res) => {
     };
     if (configResponse.cloudflareApiToken) {
       configResponse.cloudflareApiToken = '********';
+    }
+    // 🛡️ Sentinel: Redact sensitive internal URLs for non-admins to prevent info leak, while allowing UI to render
+    if (!req.user || req.user.username !== 'admin') {
+      configResponse.lmStudioBaseUrl = 'REDACTED';
+      configResponse.cloudflareBaseUrl = 'REDACTED';
+      configResponse.aiBaseUrl = 'REDACTED';
     }
     res.json(configResponse);
   } catch (error) {
@@ -2732,6 +2738,11 @@ app.get('/api/ai/config', async (_req, res) => {
 
 app.put('/api/ai/config', async (req, res) => {
   try {
+    // 🛡️ Sentinel: Prevent broken access control/SSRF by restricting global config changes to admins
+    if (!req.user || req.user.username !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Only administrators can modify global AI settings' });
+    }
+
     const nextConfig = {
       ...aiConfig
     };

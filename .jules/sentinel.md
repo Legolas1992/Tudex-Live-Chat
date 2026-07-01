@@ -17,3 +17,8 @@
 **Vulnerability:** The `parseProviderContext` function allowed users to specify arbitrary `accountId` values via request parameters or body payload without validating authorization. This resulted in an Insecure Direct Object Reference (IDOR) where any authenticated user could act as another user.
 **Learning:** In a multi-tenant or multi-account system, blindly trusting user-provided identifiers for sensitive actions (like fetching chats or sending messages) leads to authorization bypasses.
 **Prevention:** Always enforce server-side authorization checks on resource identifiers provided by clients, ensuring the authenticated user has permission to access the requested resource. Override untrusted identifiers with authenticated session data where appropriate.
+
+## 2024-06-26 - [Fix Broken Access Control in Global Config]
+**Vulnerability:** The `PUT /api/ai/config` endpoint allowed any authenticated user to modify global AI configuration settings, including base URLs, without checking if the user was an admin. The `GET /api/ai/config` endpoint also leaked internal URLs to non-admin users. This allowed SSRF attacks and information disclosure.
+**Learning:** Endpoints that modify global or system-wide configuration must explicitly verify the user's role (e.g., `req.user.username === 'admin'`). Read endpoints required by the frontend should not simply return a 403 for non-admins if it breaks the UI, but must redact sensitive internal URLs and API tokens.
+**Prevention:** Always enforce server-side role checks (like checking `req.user.username === 'admin'`) before allowing changes to global settings.
