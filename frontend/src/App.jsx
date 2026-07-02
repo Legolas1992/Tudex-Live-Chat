@@ -1978,7 +1978,7 @@ function App() {
                 const keyData = await keyRes.json();
                 if (keyData.publicKey) {
                   console.log("[E2EE] Encrypting offline queued message...");
-                  textToSend = await encryptMessage(textToSend, keyData.publicKey);
+                  textToSend = await encryptMessage(textToSend, keyData.publicKey, currentUser?.publicKey);
                 }
               }
             } catch (e) {
@@ -2399,7 +2399,7 @@ function App() {
     if (activeChatPublicKeyRef.current) {
       try {
         console.log("[E2EE] Encrypting message before posting...");
-        finalBody = await encryptMessage(text, activeChatPublicKeyRef.current);
+        finalBody = await encryptMessage(text, activeChatPublicKeyRef.current, currentUser?.publicKey);
       } catch (err) {
         console.error("[E2EE] Encryption failed, fallback to plain text:", err);
       }

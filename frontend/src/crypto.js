@@ -74,8 +74,8 @@ export async function importPrivateKey(pkcs8Base64) {
   );
 }
 
-// Hybrid Encryption: RSA-OAEP + AES-GCM
-export async function encryptMessage(text, recipientPublicKeySpki) {
+// Hybrid Encryption: RSA-OAEP + AES-GCM (encodes for both recipient and optional sender)
+export async function encryptMessage(text, recipientPublicKeySpki, senderPublicKeySpki = null) {
   try {
     const pubKey = await importPublicKey(recipientPublicKeySpki);
     
@@ -112,12 +112,30 @@ export async function encryptMessage(text, recipientPublicKeySpki) {
       rawAesKey
     );
 
+    // 3b. Encrypt AES key with sender RSA public key if provided
+    let senderEncryptedAesKeyBuffer = null;
+    if (senderPublicKeySpki) {
+      try {
+        const senderPubKey = await importPublicKey(senderPublicKeySpki);
+        senderEncryptedAesKeyBuffer = await window.crypto.subtle.encrypt(
+          {
+            name: "RSA-OAEP"
+          },
+          senderPubKey,
+          rawAesKey
+        );
+      } catch (err) {
+        console.warn("Could not encrypt AES key for sender:", err);
+      }
+    }
+
     // 4. Return serialized hybrid package
     return JSON.stringify({
       e2ee: true,
       iv: arrayBufferToBase64(iv),
       ciphertext: arrayBufferToBase64(ciphertextBuffer),
-      encryptedAesKey: arrayBufferToBase64(encryptedAesKeyBuffer)
+      encryptedAesKey: arrayBufferToBase64(encryptedAesKeyBuffer),
+      senderEncryptedAesKey: senderEncryptedAesKeyBuffer ? arrayBufferToBase64(senderEncryptedAesKeyBuffer) : null
     });
   } catch (error) {
     console.error("Encryption error:", error);
@@ -137,14 +155,30 @@ export async function decryptMessage(encryptedPayloadJson, privateKey) {
     const ciphertext = base64ToArrayBuffer(payload.ciphertext);
     const encryptedAesKey = base64ToArrayBuffer(payload.encryptedAesKey);
 
-    // 1. Decrypt AES key using RSA private key
-    const decryptedAesKeyRaw = await window.crypto.subtle.decrypt(
-      {
-        name: "RSA-OAEP"
-      },
-      privateKey,
-      encryptedAesKey
-    );
+    // 1. Decrypt AES key using RSA private key (try recipient's key first, then fallback to sender's if available)
+    let decryptedAesKeyRaw;
+    try {
+      decryptedAesKeyRaw = await window.crypto.subtle.decrypt(
+        {
+          name: "RSA-OAEP"
+        },
+        privateKey,
+        encryptedAesKey
+      );
+    } catch (err) {
+      if (payload.senderEncryptedAesKey) {
+        const senderEncryptedAesKey = base64ToArrayBuffer(payload.senderEncryptedAesKey);
+        decryptedAesKeyRaw = await window.crypto.subtle.decrypt(
+          {
+            name: "RSA-OAEP"
+          },
+          privateKey,
+          senderEncryptedAesKey
+        );
+      } else {
+        throw err;
+      }
+    }
 
     // 2. Import AES-GCM key
     const aesKey = await window.crypto.subtle.importKey(
