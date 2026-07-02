@@ -102,6 +102,23 @@ export function useVoiceCall({
       }
     };
 
+    pc.onnegotiationneeded = async () => {
+      if (pc.signalingState !== "stable") return;
+      try {
+        if (socketRef.current) {
+          console.log("[WebRTC] Negotiation needed. Creating offer...");
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socketRef.current.emit('send-voice-signal', {
+            to: peerSocketId,
+            signal: { sdp: pc.localDescription }
+          });
+        }
+      } catch (e) {
+        console.error("Error creating WebRTC offer on negotiationneeded:", e);
+      }
+    };
+
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
         showNotice(`Warning Se cortó la conexión con ${peerInfo.username || "un participante"}.`, "warning");
