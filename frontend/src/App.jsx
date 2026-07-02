@@ -752,14 +752,6 @@ function App() {
   const [activeStoryIndex, setActiveStoryIndex] = useState(null);
 
 
-
-  useEffect(() => {
-    if (isOffline && inVoiceCall) {
-      showNotice("⚠️ Conexión perdida. Saliendo de la llamada...", "warning");
-      leaveVoiceRoom();
-    }
-  }, [isOffline, inVoiceCall]);
-
   async function saveUserProfile() {
     const profilePayload = {
       username: userUsernameInput,
@@ -1165,6 +1157,13 @@ function App() {
     iceServers: iceServersRef.current,
     setNotifications
   });
+
+  useEffect(() => {
+    if (isOffline && inVoiceCall) {
+      showNotice("⚠️ Conexión perdida. Saliendo de la llamada...", "warning");
+      leaveVoiceRoom();
+    }
+  }, [isOffline, inVoiceCall]);
 
   const filteredChats = useMemo(() => {
     const needle = chatSearch.trim().toLowerCase();
