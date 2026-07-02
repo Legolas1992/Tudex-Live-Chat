@@ -211,6 +211,10 @@ export function useVoiceCall({
   };
 
   const startScreenShare = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      showNotice("La compartición de pantalla no está soportada en este navegador, dispositivo móvil o contexto no seguro (debe ser HTTPS).", "error");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       screenStreamRef.current = stream;

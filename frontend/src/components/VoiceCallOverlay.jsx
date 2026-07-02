@@ -308,44 +308,153 @@ export function VoiceCallOverlay({
     return null;
   }
 
+  const isSomeoneSharingScreen = screenStream || voicePeers.some(p => p.stream && p.stream.getVideoTracks().length > 0);
+  const activeVideoPeer = !screenStream && voicePeers.find(p => p.stream && p.stream.getVideoTracks().length > 0);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', zIndex: 10 }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      width: 'calc(100% - 24px)',
+      background: '#0b0f19',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRadius: '16px',
+      margin: '12px auto',
+      padding: '16px',
+      gap: '16px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+      zIndex: 10,
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {/* Header Info */}
       <div style={{
-        background: 'rgba(15, 23, 42, 0.95)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        padding: '12px 20px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '15px'
+        width: '100%',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        paddingBottom: '12px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              background: '#16a34a',
-              boxShadow: '0 0 10px #16a34a',
-              display: 'inline-block'
-            }} />
-            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '600' }}>Llamada de Voz Activa</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: '#10b981',
+            boxShadow: '0 0 8px #10b981',
+            display: 'inline-block'
+          }} />
+          <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>
+            Llamada de voz · {voicePeers.length + 1} participantes
+          </span>
+        </div>
+        <button
+          onClick={() => setIsCallMinimized(true)}
+          style={{
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: 'none',
+            color: '#94a3b8',
+            borderRadius: '6px',
+            padding: '4px 10px',
+            cursor: 'pointer',
+            fontSize: '0.75rem',
+            fontWeight: '600',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#94a3b8'; }}
+        >
+          🗕 Minimizar
+        </button>
+      </div>
+
+      {/* Main Area: Screen share or Participant Cards Grid */}
+      {isSomeoneSharingScreen ? (
+        <div style={{
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          {/* Main Video Box */}
+          <div style={{
+            width: '100%',
+            height: '340px',
+            background: '#04060b',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid rgba(255, 255, 255, 0.06)'
+          }}>
+            {screenStream ? (
+              <video
+                autoPlay
+                playsInline
+                muted
+                ref={el => { if (el && el.srcObject !== screenStream) el.srcObject = screenStream; }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            ) : (
+              activeVideoPeer && (
+                <video
+                  autoPlay
+                  playsInline
+                  ref={el => { if (el && el.srcObject !== activeVideoPeer.stream) el.srcObject = activeVideoPeer.stream; }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              )
+            )}
+            
+            {/* Label Overlay */}
+            <div style={{
+              position: 'absolute',
+              bottom: '12px',
+              left: '12px',
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(4px)',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              color: '#fff',
+              fontWeight: '600',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              {screenStream ? "Estás compartiendo tu pantalla" : `Pantalla compartida de ${activeVideoPeer?.username}`}
+            </div>
           </div>
-          
-          {/* Participant Avatars */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '10px' }}>
-            {/* Local User */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
+
+          {/* Shrunk Participant Avatars strip */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            marginTop: '4px'
+          }}>
+            {/* Local participant bubble */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(255,255,255,0.05)',
+              padding: '4px 10px',
+              borderRadius: '16px',
+              border: '1px solid rgba(255,255,255,0.08)'
+            }}>
               <div style={{
-                width: '20px',
-                height: '20px',
+                width: '18px',
+                height: '18px',
                 borderRadius: '50%',
                 background: currentUser?.avatarUrl ? 'transparent' : getAvatarGradient(currentUser?.avatarColor || currentUser?.id || 'me'),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '0.65rem',
+                fontSize: '0.6rem',
                 fontWeight: '700',
                 color: '#fff',
                 overflow: 'hidden'
@@ -356,21 +465,29 @@ export function VoiceCallOverlay({
                   (currentUser?.username || "Yo").slice(0, 2).toUpperCase()
                 )}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#eee' }}>Tú {isMuted ? '🔇' : '🎙️'}</span>
+              <span style={{ fontSize: '0.7rem', color: '#ccc' }}>Tú {isMuted ? '🔇' : '🎙️'}</span>
             </div>
 
-            {/* Remote Peers */}
+            {/* Remote participants bubbles */}
             {voicePeers.map(peer => (
-              <div key={peer.socketId} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div key={peer.socketId} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(255,255,255,0.05)',
+                padding: '4px 10px',
+                borderRadius: '16px',
+                border: '1px solid rgba(255,255,255,0.08)'
+              }}>
                 <div style={{
-                  width: '20px',
-                  height: '20px',
+                  width: '18px',
+                  height: '18px',
                   borderRadius: '50%',
                   background: peer.avatarUrl ? 'transparent' : getAvatarGradient(peer.avatarColor || peer.userId),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '0.65rem',
+                  fontSize: '0.6rem',
                   fontWeight: '700',
                   color: '#fff',
                   overflow: 'hidden'
@@ -381,59 +498,199 @@ export function VoiceCallOverlay({
                     peer.username.slice(0, 2).toUpperCase()
                   )}
                 </div>
-                <span style={{ fontSize: '0.75rem', color: '#eee' }}>{peer.username}</span>
+                <span style={{ fontSize: '0.7rem', color: '#ccc' }}>{peer.username}</span>
               </div>
             ))}
           </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            onClick={toggleMute}
-            style={{
-              background: isMuted ? '#ef4444' : 'rgba(255, 255, 255, 0.1)',
-              border: 'none',
-              color: '#fff',
+      ) : (
+        /* Grid of large participant cards */
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+          gap: '12px',
+          width: '100%',
+          minHeight: '140px',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          {/* Local participant card */}
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            position: 'relative'
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
               borderRadius: '50%',
-              width: '36px',
-              height: '36px',
+              background: currentUser?.avatarUrl ? 'transparent' : getAvatarGradient(currentUser?.avatarColor || currentUser?.id || 'me'),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              transition: 'all 0.2s',
-              padding: 0
-            }}
-            title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
-          >
-            {isMuted ? "🔇" : "🎙️"}
-          </button>
+              fontSize: '1.2rem',
+              fontWeight: '700',
+              color: '#fff',
+              overflow: 'hidden',
+              boxShadow: !isMuted ? '0 0 12px rgba(16, 185, 129, 0.3)' : 'none',
+              border: !isMuted ? '2px solid #10b981' : '2px solid rgba(255,255,255,0.1)'
+            }}>
+              {currentUser?.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt="Yo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                (currentUser?.username || "Yo").slice(0, 2).toUpperCase()
+              )}
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#fff', fontWeight: '600' }}>Tú</span>
+            <div style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              background: isMuted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+              borderRadius: '50%',
+              width: '18px',
+              height: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.65rem'
+            }}>
+              {isMuted ? "🔇" : "🎙️"}
+            </div>
+          </div>
+
+          {/* Remote participants cards */}
+          {voicePeers.map(peer => (
+            <div key={peer.socketId} style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              borderRadius: '12px',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              position: 'relative'
+            }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: peer.avatarUrl ? 'transparent' : getAvatarGradient(peer.avatarColor || peer.userId),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.2rem',
+                fontWeight: '700',
+                color: '#fff',
+                overflow: 'hidden',
+                boxShadow: '0 0 12px rgba(16, 185, 129, 0.2)',
+                border: '2px solid rgba(255,255,255,0.15)'
+              }}>
+                {peer.avatarUrl ? (
+                  <img src={peer.avatarUrl} alt={peer.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  peer.username.slice(0, 2).toUpperCase()
+                )}
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#fff', fontWeight: '600' }}>{peer.username}</span>
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'rgba(16, 185, 129, 0.2)',
+                borderRadius: '50%',
+                width: '18px',
+                height: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.65rem'
+              }}>
+                🎙️
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Control Toolbar at the bottom */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '16px',
+        width: '100%',
+        marginTop: '8px',
+        borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+        paddingTop: '14px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Mute Button */}
           <button
-            onClick={screenStream ? stopScreenShare : startScreenShare}
+            onClick={toggleMute}
             style={{
-              background: screenStream ? '#16a34a' : 'rgba(255,255,255,0.1)',
+              background: isMuted ? '#ef4444' : 'rgba(255, 255, 255, 0.08)',
               border: 'none',
               color: '#fff',
               borderRadius: '50%',
-              width: '36px',
-              height: '36px',
+              width: '40px',
+              height: '40px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               fontSize: '1.1rem',
               transition: 'all 0.2s',
-              padding: 0
+              boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+            }}
+            title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
+          >
+            {isMuted ? "🔇" : "🎙️"}
+          </button>
+          
+          {/* Screen Share Button */}
+          <button
+            onClick={screenStream ? stopScreenShare : startScreenShare}
+            style={{
+              background: screenStream ? '#10b981' : 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              color: '#fff',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '1.1rem',
+              transition: 'all 0.2s',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
             }}
             title={screenStream ? "Dejar de compartir pantalla" : "Compartir pantalla"}
           >
             🖥️
           </button>
-          
-          {/* Volume Slider Control */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.06)', padding: '4px 10px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <span style={{ fontSize: '0.8rem', color: '#ccc' }}>🔊</span>
+
+          {/* Volume Control */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            padding: '6px 12px',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 255, 255, 0.06)'
+          }}>
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>🔊</span>
             <input
               type="range"
               min="0"
@@ -441,47 +698,32 @@ export function VoiceCallOverlay({
               value={callVolume}
               onChange={(e) => setCallVolume(parseInt(e.target.value))}
               style={{
-                width: '70px',
+                width: '60px',
                 height: '4px',
-                accentColor: '#ff6f24',
+                accentColor: '#a855f7',
                 cursor: 'pointer'
               }}
-              title={`Volumen de llamada: ${callVolume}%`}
+              title={`Volumen: ${callVolume}%`}
             />
           </div>
-
-          <button
-            onClick={() => setIsCallMinimized(true)}
-            style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: 'none',
-              color: '#fff',
-              borderRadius: '8px',
-              padding: '8px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              fontWeight: '600'
-            }}
-          >
-            🗕 Minimizar
-          </button>
+          
+          {/* Decline/Disconnect Button */}
           <button
             onClick={leaveVoiceRoom}
             style={{
               background: '#ef4444',
               border: 'none',
               color: '#fff',
-              borderRadius: '8px',
-              padding: '8px 14px',
+              borderRadius: '20px',
+              padding: '8px 16px',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               cursor: 'pointer',
               fontSize: '0.8rem',
-              fontWeight: '600'
+              fontWeight: '700',
+              boxShadow: '0 4px 10px rgba(239, 68, 68, 0.3)',
+              transition: 'all 0.2s'
             }}
           >
             Desconectar
@@ -489,49 +731,6 @@ export function VoiceCallOverlay({
         </div>
       </div>
 
-      {/* Screen Share Video Stream Panel */}
-      {(screenStream || voicePeers.some(p => p.stream && p.stream.getVideoTracks().length > 0)) && (
-        <div style={{
-          background: '#0a0f1d',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '10px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          maxHeight: '260px',
-          position: 'relative'
-        }}>
-          {screenStream ? (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <video
-                autoPlay
-                playsInline
-                muted
-                ref={el => { if (el && el.srcObject !== screenStream) el.srcObject = screenStream; }}
-                style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
-              />
-              <span style={{ fontSize: '0.75rem', color: '#a855f7', marginTop: '6px', fontWeight: '600' }}>Estás compartiendo tu pantalla</span>
-            </div>
-          ) : (
-            (() => {
-              const activeVideoPeer = voicePeers.find(p => p.stream && p.stream.getVideoTracks().length > 0);
-              if (!activeVideoPeer) return null;
-              return (
-                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <video
-                    autoPlay
-                    playsInline
-                    ref={el => { if (el && el.srcObject !== activeVideoPeer.stream) el.srcObject = activeVideoPeer.stream; }}
-                    style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
-                  />
-                  <span style={{ fontSize: '0.75rem', color: '#ff6f24', marginTop: '6px', fontWeight: '600' }}>Pantalla compartida de {activeVideoPeer.username}</span>
-                </div>
-              );
-            })()
-          )}
-        </div>
-      )}
-      
       {/* Audio elements to play peer audio streams */}
       <div style={{ display: 'none' }}>
         {voicePeers.map(peer => {
