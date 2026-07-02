@@ -72,7 +72,7 @@ export function VoiceCallOverlay({
           animation: 'pulse 1.8s infinite',
           overflow: 'hidden'
         }}>
-          <span style={{ fontSize: '3rem' }}>📞</span>
+          <span style={{ fontSize: '3rem' }}>Call</span>
         </div>
         <h2 style={{ fontSize: '1.75rem', fontWeight: '700', margin: '10px 0' }}>{outgoingCallInfo.recipientName}</h2>
         <p style={{ color: '#ff6f24', fontSize: '1.05rem', fontWeight: '600', marginBottom: '40px', animation: 'pulse 1.5s infinite' }}>
@@ -99,7 +99,7 @@ export function VoiceCallOverlay({
             }}
             title="Cancelar llamada"
           >
-            🔇
+            Muted
           </button>
         </div>
       </div>
@@ -137,7 +137,7 @@ export function VoiceCallOverlay({
           animation: 'pulse 1.8s infinite',
           overflow: 'hidden'
         }}>
-          <span style={{ fontSize: '3rem' }}>📞</span>
+          <span style={{ fontSize: '3rem' }}>Call</span>
         </div>
         <h2 style={{ fontSize: '1.75rem', fontWeight: '700', margin: '10px 0' }}>{incomingCallInfo.hostName}</h2>
         <p style={{ color: '#00e676', fontSize: '1.05rem', fontWeight: '600', marginBottom: '40px' }}>
@@ -168,7 +168,7 @@ export function VoiceCallOverlay({
             }}
             title="Aceptar llamada"
           >
-            📞
+            Call
           </button>
           
           {/* Decline Button */}
@@ -191,7 +191,7 @@ export function VoiceCallOverlay({
             }}
             title="Rechazar llamada"
           >
-            ❌
+            Close
           </button>
         </div>
       </div>
@@ -246,7 +246,7 @@ export function VoiceCallOverlay({
               padding: 0
             }}
           >
-            {isMuted ? "🔇" : "🎙️"}
+            {isMuted ? "Muted" : "Mic"}
           </button>
           
           {/* Maximizar */}
@@ -274,7 +274,7 @@ export function VoiceCallOverlay({
             }}
             title="Maximizar"
           >
-            🗖
+            
           </button>
 
           {/* Hang Up */}
@@ -296,7 +296,7 @@ export function VoiceCallOverlay({
             }}
             title="Desconectar"
           >
-            📞
+            Call
           </button>
         </div>
       </div>
@@ -365,7 +365,7 @@ export function VoiceCallOverlay({
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#94a3b8'; }}
         >
-          🗕 Minimizar
+           Minimizar
         </button>
       </div>
 
@@ -465,7 +465,7 @@ export function VoiceCallOverlay({
                   (currentUser?.username || "Yo").slice(0, 2).toUpperCase()
                 )}
               </div>
-              <span style={{ fontSize: '0.7rem', color: '#ccc' }}>Tú {isMuted ? '🔇' : '🎙️'}</span>
+              <span style={{ fontSize: '0.7rem', color: '#ccc' }}>Tú {isMuted ? 'Muted' : 'Mic'}</span>
             </div>
 
             {/* Remote participants bubbles */}
@@ -562,7 +562,7 @@ export function VoiceCallOverlay({
               justifyContent: 'center',
               fontSize: '0.65rem'
             }}>
-              {isMuted ? "🔇" : "🎙️"}
+              {isMuted ? "Muted" : "Mic"}
             </div>
           </div>
 
@@ -615,7 +615,7 @@ export function VoiceCallOverlay({
                 justifyContent: 'center',
                 fontSize: '0.65rem'
               }}>
-                🎙️
+                Mic
               </div>
             </div>
           ))}
@@ -654,7 +654,7 @@ export function VoiceCallOverlay({
             }}
             title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
           >
-            {isMuted ? "🔇" : "🎙️"}
+            {isMuted ? "Muted" : "Mic"}
           </button>
           
           {/* Screen Share Button */}
@@ -677,7 +677,7 @@ export function VoiceCallOverlay({
             }}
             title={screenStream ? "Dejar de compartir pantalla" : "Compartir pantalla"}
           >
-            🖥️
+            Screen
           </button>
 
           {/* Volume Control */}
@@ -690,7 +690,7 @@ export function VoiceCallOverlay({
             borderRadius: '20px',
             border: '1px solid rgba(255, 255, 255, 0.06)'
           }}>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>🔊</span>
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}></span>
             <input
               type="range"
               min="0"

@@ -81,7 +81,7 @@ window.fetch = async (...args) => {
   return response;
 };
 
-// ⚡ Bolt: Cache Intl.DateTimeFormat instances to avoid expensive instantiation on every render for large lists
+//  Bolt: Cache Intl.DateTimeFormat instances to avoid expensive instantiation on every render for large lists
 const timeFormatter = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" });
 const dateFormatter = new Intl.DateTimeFormat([], { day: "2-digit", month: "2-digit" });
 const dateTimeFormatter = new Intl.DateTimeFormat([], {
@@ -365,11 +365,11 @@ function UserIcon({ size = 20, className = "" }) {
 }
 
 function AckIcon({ status }) {
-  if (status === 3) return <span role="status" aria-label="Leído" className="ackDoubleBlue" aria-hidden="false"><span aria-hidden="true">✓✓</span></span>;
-  if (status === 2) return <span role="status" aria-label="Entregado" className="ackDouble" aria-hidden="false"><span aria-hidden="true">✓✓</span></span>;
-  if (status === 1) return <span role="status" aria-label="Enviado" className="ackSingle" aria-hidden="false"><span aria-hidden="true">✓</span></span>;
+  if (status === 3) return <span role="status" aria-label="Leído" className="ackDoubleBlue" aria-hidden="false"><span aria-hidden="true"></span></span>;
+  if (status === 2) return <span role="status" aria-label="Entregado" className="ackDouble" aria-hidden="false"><span aria-hidden="true"></span></span>;
+  if (status === 1) return <span role="status" aria-label="Enviado" className="ackSingle" aria-hidden="false"><span aria-hidden="true"></span></span>;
   if (status === 'sending') return <span role="status" aria-label="Enviando" className="ackClock" aria-hidden="false"><span aria-hidden="true">⏲</span></span>;
-  if (status === 'offline_pending') return <span role="status" aria-label="Pendiente sin conexión" className="ackOffline" aria-hidden="false"><span aria-hidden="true">🕒</span></span>;
+  if (status === 'offline_pending') return <span role="status" aria-label="Pendiente sin conexión" className="ackOffline" aria-hidden="false"><span aria-hidden="true"></span></span>;
   return null;
 }
 
@@ -383,8 +383,8 @@ const ChatSentiment = React.memo(function ChatSentiment({ lastMsg }) {
   negative.forEach(w => { if (text.includes(w)) score -= 1; });
 
   let sentiment = null;
-  if (score > 0) sentiment = { emoji: "😊", color: "#10b981", label: "Positivo" };
-  else if (score < 0) sentiment = { emoji: "😕", color: "#f43f5e", label: "Negativo" };
+  if (score > 0) sentiment = { emoji: "Smile", color: "#10b981", label: "Positivo" };
+  else if (score < 0) sentiment = { emoji: "", color: "#f43f5e", label: "Negativo" };
 
   if (!sentiment) return null;
   return (
@@ -547,7 +547,7 @@ function App() {
     if (chatSearchDebounceRef.current) {
       clearTimeout(chatSearchDebounceRef.current);
     }
-    // ⚡ Bolt: Debounce the search input to prevent excessive React re-renders and hook recalculations
+    //  Bolt: Debounce the search input to prevent excessive React re-renders and hook recalculations
     chatSearchDebounceRef.current = setTimeout(() => {
       setChatSearch(val);
     }, 300);
@@ -758,7 +758,7 @@ function App() {
       const nextQueue = [...offlineQueue, optimisticAction];
       setOfflineQueueState(nextQueue);
       await setOfflineQueue(provider, accountId, nextQueue);
-      showNotice("📱 Sin conexión. Cambios de perfil guardados localmente y se sincronizarán al reconectar.", "success");
+      showNotice(" Sin conexión. Cambios de perfil guardados localmente y se sincronizarán al reconectar.", "success");
       setShowProfileMenu(false);
       return;
     }
@@ -826,7 +826,7 @@ function App() {
       const nextQueue = [...offlineQueue, optimisticAction];
       setOfflineQueueState(nextQueue);
       await setOfflineQueue(provider, accountId, nextQueue);
-      showNotice(isFollowed ? "📱 Sin conexión. Se dejará de seguir al reconectarse." : "📱 Sin conexión. Se seguirá al reconectarse.", "success");
+      showNotice(isFollowed ? " Sin conexión. Se dejará de seguir al reconectarse." : " Sin conexión. Se seguirá al reconectarse.", "success");
       return;
     }
     try {
@@ -900,7 +900,7 @@ function App() {
       setOfflineQueueState(nextQueue);
       await setOfflineQueue(provider, accountId, nextQueue);
       setNewPublicStatusBody("");
-      showNotice("📱 Sin conexión. Estado en cola para publicar en el muro.", "info");
+      showNotice(" Sin conexión. Estado en cola para publicar en el muro.", "info");
       return;
     }
 
@@ -964,7 +964,7 @@ function App() {
       await setOfflineQueue(provider, accountId, nextQueue);
       setNewStatusBody("");
       setShowNewStatusModal(false);
-      showNotice("📱 Sin conexión. Estado personal en cola para publicar.", "info");
+      showNotice(" Sin conexión. Estado personal en cola para publicar.", "info");
       return;
     }
 
@@ -1164,7 +1164,7 @@ function App() {
 
   useEffect(() => {
     if (isOffline && inVoiceCall) {
-      showNotice("⚠️ Conexión perdida. Saliendo de la llamada...", "warning");
+      showNotice("Warning Conexión perdida. Saliendo de la llamada...", "warning");
       leaveVoiceRoom();
     }
   }, [isOffline, inVoiceCall]);
@@ -1417,7 +1417,7 @@ function App() {
         markChatAsRead(msg.chatId);
       } else {
         // 1. In-app toast notification
-        showNotice(`💬 ${senderName}: ${previewText}`, "info");
+        showNotice(`Chat ${senderName}: ${previewText}`, "info");
 
         // 2. Add to Notifications history
         setNotifications(prev => [
@@ -1541,7 +1541,7 @@ function App() {
     if (apiAuthenticated && "Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().then(permission => {
         if (permission === "granted") {
-          showNotice("🔔 ¡Notificaciones nativas del sistema activadas!", "success");
+          showNotice("Alert ¡Notificaciones nativas del sistema activadas!", "success");
         }
       });
     }
@@ -1576,7 +1576,7 @@ function App() {
           const cachedUser = JSON.parse(cachedUserStr);
           setCurrentUser(cachedUser);
           setApiAuthenticated(true);
-          showNotice("📶 Modo sin conexión activado. Usando sesión guardada.", "info");
+          showNotice("Status Modo sin conexión activado. Usando sesión guardada.", "info");
         } catch (_) {
           setApiAuthenticated(false);
           setAuthError("Error de conexión al verificar credenciales.");
@@ -1959,7 +1959,7 @@ function App() {
     const queue = [...offlineQueueRef.current];
 
     if (syncAttemptsRef.current === 0) {
-      showNotice("🔄 Sincronizando acciones pendientes...", "info");
+      showNotice(" Sincronizando acciones pendientes...", "info");
     }
 
     for (const action of queue) {
@@ -2049,7 +2049,7 @@ function App() {
         console.error("Error processing queued offline action:", err);
         syncAttemptsRef.current += 1;
         const delay = Math.min(30000, Math.pow(2, syncAttemptsRef.current) * 1000 + Math.random() * 1000);
-        showNotice(`⚠️ Error de red. Reintentando sincronización en ${Math.round(delay/1000)}s...`, "warning");
+        showNotice(`Warning Error de red. Reintentando sincronización en ${Math.round(delay/1000)}s...`, "warning");
         syncRetryTimeoutRef.current = setTimeout(processOfflineQueue, delay);
         break;
       }
@@ -2453,7 +2453,7 @@ function App() {
       setDraft("");
       setCorrectedDraft("");
       setReplyTarget(null);
-      showNotice("📱 Sin conexión a Internet. Mensaje en cola para enviar al reconectar.", "info");
+      showNotice(" Sin conexión a Internet. Mensaje en cola para enviar al reconectar.", "info");
       return;
     }
     const optimisticMsg = {
@@ -2480,7 +2480,7 @@ function App() {
       setDraft("");
       setCorrectedDraft("");
       setReplyTarget(null);
-      showNotice(type === "corrected" || type === "correctedAndSending" ? "✨ Mensaje mejorado por IA y enviado." : "📤 Mensaje original enviado.", "success");
+      showNotice(type === "corrected" || type === "correctedAndSending" ? "AI Mensaje mejorado por IA y enviado." : " Mensaje original enviado.", "success");
       await fetchMessages(selectedChatId, { withLoader: false, background: true });
     } catch (error) {
       setMessages(prev => prev.filter(m => m._uiId !== optimisticMsg._uiId));
@@ -2732,7 +2732,7 @@ function App() {
                 boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)',
                 marginBottom: '15px'
               }}>
-                <span style={{ fontSize: '32px', color: '#fff' }}>💬</span>
+                <span style={{ fontSize: '32px', color: '#fff' }}>Chat</span>
               </div>
               <h1 id="authHeading" style={{ fontSize: '2.2rem', fontWeight: '800', margin: '0', background: 'linear-gradient(to right, #a855f7, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tapchat</h1>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '5px' }}>
@@ -3034,7 +3034,7 @@ function App() {
               </button>
               <div className="notice error mt-2" role="alert" aria-live="assertive">
                 <p className="helperText errorText">
-                  <strong>⚠️ Error de Autenticación de Proveedor</strong><br />
+                  <strong>Warning Error de Autenticación de Proveedor</strong><br />
                   Si el problema persiste, es posible que el dispositivo haya sido desvinculado desde tu teléfono u origen.
                 </p>
               </div>
@@ -3492,7 +3492,7 @@ function App() {
                       border: '1px solid rgba(255, 111, 36, 0.2)',
                       fontWeight: '600'
                     }}>
-                      📍 a {user.distanceMeters ? (user.distanceMeters < 1000 ? `${user.distanceMeters} m` : `${(user.distanceMeters/1000).toFixed(1)} km`) : '150 m'}
+                       a {user.distanceMeters ? (user.distanceMeters < 1000 ? `${user.distanceMeters} m` : `${(user.distanceMeters/1000).toFixed(1)} km`) : '150 m'}
                     </span>
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '4px' }}>
@@ -3604,7 +3604,7 @@ function App() {
                     gap: '6px'
                   }}
                 >
-                  {publishingStatus ? 'Publicando...' : '📢 Publicar en Muro'}
+                  {publishingStatus ? 'Publicando...' : ' Publicar en Muro'}
                 </button>
               </div>
 
@@ -3662,12 +3662,12 @@ function App() {
                           </span>
                         </div>
                         <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
-                          📍 {status.distanceMeters ? (status.distanceMeters < 1000 ? `${status.distanceMeters} m` : `${(status.distanceMeters/1000).toFixed(1)} km`) : '150 m'}
+                           {status.distanceMeters ? (status.distanceMeters < 1000 ? `${status.distanceMeters} m` : `${(status.distanceMeters/1000).toFixed(1)} km`) : '150 m'}
                         </div>
                       </div>
                       {status.isOfflinePending && (
                         <span style={{ fontSize: '0.7rem', color: '#ff9f43', background: 'rgba(255, 159, 67, 0.1)', padding: '2px 8px', borderRadius: '12px' }}>
-                          🕒 Pendiente
+                           Pendiente
                         </span>
                       )}
                     </div>
@@ -3768,7 +3768,7 @@ function App() {
                     const lastMsg = chatMsgs.length > 0 ? chatMsgs[chatMsgs.length - 1] : null;
                     if (lastMsg) {
                       const prefix = lastMsg.fromMe ? "Tú: " : "";
-                      return `${prefix}${lastMsg.body || (lastMsg.mediaType === "image" ? "📷 Imagen" : "Archivo")}`;
+                      return `${prefix}${lastMsg.body || (lastMsg.mediaType === "image" ? " Imagen" : "Archivo")}`;
                     }
                     return chat.unreadCount
                       ? `${chat.isGroup ? "Grupo" : "Directo"} · Sin contestar`
@@ -3842,7 +3842,7 @@ function App() {
                     }}
                   >
                     <span style={{ fontSize: '1.2rem', marginTop: '2px' }}>
-                      {notif.type === 'message' ? '✉️' : notif.type === 'success' ? '✅' : notif.type === 'warning' ? '⚠️' : 'ℹ️'}
+                      {notif.type === 'message' ? '️' : notif.type === 'success' ? '' : notif.type === 'warning' ? 'Warning' : 'ℹ️'}
                     </span>
                     <div style={{ flex: 1 }}>
                       <div style={{ color: '#fff', fontWeight: '500' }}>{notif.text}</div>
@@ -3863,7 +3863,7 @@ function App() {
                       title="Eliminar"
                       aria-label="Eliminar notificación"
                     >
-                      ❌
+                      Close
                     </button>
                   </div>
                 ))
@@ -4048,7 +4048,7 @@ function App() {
                 <div className="chatHeaderInfo">
                   <h3>Estados archivados</h3>
                   <p>
-                    {/* ⚡ Bolt: Using cached timeFormatter instead of toLocaleTimeString to prevent instantiation overhead */}
+                    {/*  Bolt: Using cached timeFormatter instead of toLocaleTimeString to prevent instantiation overhead */}
                     {backendStatus.statusArchive?.lastRunAt
                       ? `Última revisión ${timeFormatter.format(new Date(backendStatus.statusArchive.lastRunAt))}`
                       : "Escaneo automático cada minuto"}
@@ -4072,7 +4072,7 @@ function App() {
                     justifyContent: 'center'
                   }}
                 >
-                  {loadingStatusArchive ? <span className="buttonSpinner" style={{ marginRight: 0 }} aria-hidden="true" /> : "🔄"}
+                  {loadingStatusArchive ? <span className="buttonSpinner" style={{ marginRight: 0 }} aria-hidden="true" /> : ""}
                 </button>
                 {isMobileLayout && (
                   <button
@@ -4417,7 +4417,7 @@ function App() {
                           <span className="pingBadge">Ping</span>
                         ) : null}
                         {msg.isRevoked ? (
-                          <div className="revokedNotice">🗑️ Mensaje eliminado</div>
+                          <div className="revokedNotice">Deleted Mensaje eliminado</div>
                         ) : null}
                         
                         {/* Reaction Picker Trigger Button */}
@@ -4431,14 +4431,14 @@ function App() {
                             }}
                             title="Reaccionar"
                           >
-                            ☺+
+                            React
                           </button>
                         )}
 
                         {/* Reaction Picker Popup Menu */}
                         {activeReactionPicker === msg._uiId && (
                           <div className="reaction-picker-menu" onClick={(e) => e.stopPropagation()}>
-                            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
+                            {['Like', 'Love', 'Haha', 'Wow', 'Sad', 'Pray'].map(emoji => (
                               <button
                                 key={emoji}
                                 type="button"
@@ -4620,7 +4620,7 @@ function App() {
                   boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
                 }}>
                   <div className="correctedHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <p className="correctedLabel" style={{ margin: 0, fontWeight: '700', color: 'var(--accent-primary)', fontSize: '0.85rem' }}>✨ Versión sugerida por IA</p>
+                    <p className="correctedLabel" style={{ margin: 0, fontWeight: '700', color: 'var(--accent-primary)', fontSize: '0.85rem' }}>AI Versión sugerida por IA</p>
                     <button
                       className="iconButton"
                       onClick={() => setCorrectedDraft("")}
@@ -4628,7 +4628,7 @@ function App() {
                       title="Descartar"
                       aria-label="Descartar versión sugerida"
                     >
-                      ✕
+                      
                     </button>
                   </div>
                   <p className="correctedText" style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: '#f8fafc', lineHeight: '1.4' }}>{correctedDraft}</p>
@@ -4639,7 +4639,7 @@ function App() {
                       onClick={() => sendMessage(correctedDraft, "corrected")}
                       style={{ flex: 1, padding: '8px 12px', borderRadius: '10px', fontWeight: '600' }}
                     >
-                      🚀 Enviar versión IA
+                      Send Enviar versión IA
                     </button>
                     <button
                       className="secondary useCorrectedBtn"
@@ -4649,7 +4649,7 @@ function App() {
                       }}
                       style={{ padding: '8px 12px', borderRadius: '10px' }}
                     >
-                      ✏️ Usar y editar
+                      Edit Usar y editar
                     </button>
                   </div>
                 </div>
@@ -4690,7 +4690,7 @@ function App() {
                     }}
                     style={{ fontSize: '1.25rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }}
                   >
-                    😊
+                    Smile
                   </span>
 
                   {/* Textarea inside Pill */}
@@ -4711,7 +4711,7 @@ function App() {
                       }
                     }}
                     onKeyDown={handleDraftKeyDown}
-                    placeholder={correctedDraft ? "Escribe un mensaje... (Enter: enviar versión IA)" : "Escribe un mensaje... (Enter: enviar original | botón ✨ para mejorar)"}
+                    placeholder={correctedDraft ? "Escribe un mensaje... (Enter: enviar versión IA)" : "Escribe un mensaje... (Enter: enviar original | botón AI para mejorar)"}
                     rows={1}
                     style={{
                       flex: 1,
@@ -4751,7 +4751,7 @@ function App() {
                     title="Mejorar redacción con IA (Ver sugerencia)"
                     aria-label="Mejorar redacción con IA"
                   >
-                    ✨
+                    AI
                   </button>
                 </div>
 
@@ -4794,7 +4794,7 @@ function App() {
                   style={{ marginTop: '12px' }}
                 >
                   <span className="spinner" aria-hidden="true" />
-                  <span>{correctingAndSending ? "✨ Mejorando y enviando..." : correcting ? "✨ Mejorando redacción..." : sendingType === 'corrected' || sendingType === 'correctedAndSending' ? "✨ Enviando versión IA..." : "📤 Enviando mensaje original..."}</span>
+                  <span>{correctingAndSending ? "AI Mejorando y enviando..." : correcting ? "AI Mejorando redacción..." : sendingType === 'corrected' || sendingType === 'correctedAndSending' ? "AI Enviando versión IA..." : " Enviando mensaje original..."}</span>
                 </div>
               ) : null}
 
@@ -4853,7 +4853,7 @@ function App() {
                 </section>
 
                 <section className="resourceSection">
-                  <h4>📱 Estados Archivados ({resources.statuses.length})</h4>
+                  <h4> Estados Archivados ({resources.statuses.length})</h4>
                   <div className="resourceGrid">
                     {resources.statuses.map(s => (
                       <div key={s._id || s.id || s.providerStatusMessageId} className="resourceItem">
@@ -4893,14 +4893,14 @@ function App() {
                 className={`settingsSidebarTab ${activeSettingsTab === 'profile' ? 'active' : ''}`}
                 onClick={() => setActiveSettingsTab('profile')}
               >
-                👤 Mi Cuenta
+                 Mi Cuenta
               </button>
               <button
                 type="button"
                 className={`settingsSidebarTab ${activeSettingsTab === 'ai' ? 'active' : ''}`}
                 onClick={() => setActiveSettingsTab('ai')}
               >
-                ✨ Asistente de IA
+                AI Asistente de IA
               </button>
               <button
                 type="button"
@@ -4948,7 +4948,7 @@ function App() {
                   title="Cerrar (Esc)"
                   aria-label="Cerrar configuración"
                 >
-                  <div className="settingsCloseButtonCircle">✕</div>
+                  <div className="settingsCloseButtonCircle"></div>
                   <span className="settingsCloseButtonText">Esc</span>
                 </button>
 
@@ -5141,7 +5141,7 @@ function App() {
                       {("Notification" in window) ? (
                         Notification.permission === "granted" ? (
                           <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            ✓ Notificaciones nativas activadas
+                             Notificaciones nativas activadas
                           </span>
                         ) : (
                           <button
@@ -5150,7 +5150,7 @@ function App() {
                             onClick={() => {
                               Notification.requestPermission().then(permission => {
                                 if (permission === "granted") {
-                                  showNotice("🔔 ¡Notificaciones nativas del sistema activadas!", "success");
+                                  showNotice("Alert ¡Notificaciones nativas del sistema activadas!", "success");
                                   window.location.reload();
                                 } else {
                                   showNotice("No se pudieron activar las notificaciones. Por favor revise los permisos del navegador.", "error");
@@ -5403,7 +5403,7 @@ function App() {
                   const val = e.target.value;
                   setSearchUserQuery(val);
 
-                  // ⚡ Bolt Optimization: Debounce directory search
+                  //  Bolt Optimization: Debounce directory search
                   // Impact: Reduces API requests to /api/users/search by avoiding a call on every keystroke
                   // Measurement: Observe Network tab - requests only fire after user pauses typing for 300ms
                   if (searchUserDebounceRef.current) {
@@ -5643,7 +5643,7 @@ function App() {
                     fontSize: '1rem'
                   }}
                 >
-                  ✕
+                  
                 </button>
               </div>
 
@@ -5888,7 +5888,7 @@ function App() {
                 transition: 'all 0.2s ease'
               }}
             >
-              {publishingStatus ? 'Publicando...' : '🚀 Publicar Estado'}
+              {publishingStatus ? 'Publicando...' : 'Send Publicar Estado'}
             </button>
           </div>
         </section>

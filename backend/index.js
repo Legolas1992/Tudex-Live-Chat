@@ -18,12 +18,12 @@ function safeUrl(urlStr, defaultUrl = '', varName = 'URL') {
   try {
     const parsed = new URL(urlStr);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      if (varName) console.warn(`⚠️ WARNING: Invalid protocol in ${varName} ("${urlStr}"). Must be http: or https:. Falling back to default.`);
+      if (varName) console.warn(`Warning WARNING: Invalid protocol in ${varName} ("${urlStr}"). Must be http: or https:. Falling back to default.`);
       return defaultUrl;
     }
     return urlStr;
   } catch (e) {
-    if (varName) console.warn(`⚠️ WARNING: Malformed URL in ${varName} ("${urlStr}"). Falling back to default.`);
+    if (varName) console.warn(`Warning WARNING: Malformed URL in ${varName} ("${urlStr}"). Falling back to default.`);
     return defaultUrl;
   }
 }
@@ -32,15 +32,15 @@ function safeNumber(val, defaultVal, min, max, varName = 'Number') {
   if (val === undefined || val === null || val === '') return defaultVal;
   const num = Number(val);
   if (!Number.isFinite(num)) {
-    if (varName) console.warn(`⚠️ WARNING: Non-numeric value in ${varName} ("${val}"). Falling back to ${defaultVal}.`);
+    if (varName) console.warn(`Warning WARNING: Non-numeric value in ${varName} ("${val}"). Falling back to ${defaultVal}.`);
     return defaultVal;
   }
   if (min !== undefined && num < min) {
-    if (varName) console.warn(`⚠️ WARNING: Value in ${varName} (${num}) is less than minimum (${min}). Clamping to ${min}.`);
+    if (varName) console.warn(`Warning WARNING: Value in ${varName} (${num}) is less than minimum (${min}). Clamping to ${min}.`);
     return min;
   }
   if (max !== undefined && num > max) {
-    if (varName) console.warn(`⚠️ WARNING: Value in ${varName} (${num}) is greater than maximum (${max}). Clamping to ${max}.`);
+    if (varName) console.warn(`Warning WARNING: Value in ${varName} (${num}) is greater than maximum (${max}). Clamping to ${max}.`);
     return max;
   }
   return num;
@@ -142,23 +142,23 @@ function validateStartupConfig() {
 
   // Validate AI config values that aren't inherently checked by safeUrl/safeNumber correctly
   if (!process.env.MODEL_NAME || process.env.MODEL_NAME.trim() === '') {
-    console.warn('⚠️ WARNING: MODEL_NAME is not set or empty. Falling back to "llama-3.1-8b-instruct".');
+    console.warn('Warning WARNING: MODEL_NAME is not set or empty. Falling back to "llama-3.1-8b-instruct".');
   }
 
   if (provider !== 'lmstudio' && provider !== 'cloudflare') {
-    console.warn(`⚠️ WARNING: Unsupported AI_PROVIDER "${process.env.AI_PROVIDER}". Falling back to "lmstudio".`);
+    console.warn(`Warning WARNING: Unsupported AI_PROVIDER "${process.env.AI_PROVIDER}". Falling back to "lmstudio".`);
   }
 
   if (provider === 'cloudflare') {
     if (!process.env.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID.trim() === '') {
-      console.warn('⚠️ WARNING: AI_PROVIDER is set to "cloudflare" but CLOUDFLARE_ACCOUNT_ID is missing or empty.');
+      console.warn('Warning WARNING: AI_PROVIDER is set to "cloudflare" but CLOUDFLARE_ACCOUNT_ID is missing or empty.');
     }
     if (!process.env.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN.trim() === '') {
-      console.warn('⚠️ WARNING: AI_PROVIDER is set to "cloudflare" but CLOUDFLARE_API_TOKEN is missing or empty.');
+      console.warn('Warning WARNING: AI_PROVIDER is set to "cloudflare" but CLOUDFLARE_API_TOKEN is missing or empty.');
     }
   } else if (provider === 'lmstudio') {
     if (!process.env.LM_STUDIO_URL || process.env.LM_STUDIO_URL.trim() === '') {
-      console.warn('⚠️ WARNING: AI_PROVIDER is set to "lmstudio" but LM_STUDIO_URL is missing or empty. Falling back to default.');
+      console.warn('Warning WARNING: AI_PROVIDER is set to "lmstudio" but LM_STUDIO_URL is missing or empty. Falling back to default.');
     }
   }
 
@@ -171,9 +171,9 @@ validateStartupConfig();
 const API_KEY = process.env.API_KEY !== undefined ? process.env.API_KEY : '';
 
 if (API_KEY.length > 0 && API_KEY.length < 8) {
-  console.warn('⚠️ WARNING: API_KEY is too short. This is insecure for production environments. Minimum length is 8 characters.');
+  console.warn('Warning WARNING: API_KEY is too short. This is insecure for production environments. Minimum length is 8 characters.');
 } else if (API_KEY.length === 0) {
-  console.warn('⚠️ WARNING: API_KEY is missing or empty. Authentication is DISABLED. This is highly insecure for production environments.');
+  console.warn('Warning WARNING: API_KEY is missing or empty. Authentication is DISABLED. This is highly insecure for production environments.');
 }
 
 const authenticateUser = async (req, res, next) => {
@@ -198,7 +198,7 @@ const authenticateUser = async (req, res, next) => {
       let adminUser = await User.findOne({ username: 'admin' });
       if (!adminUser) {
         try {
-          // 🛡️ Sentinel: Secure random password generation instead of hardcoded 'admin123'
+          // ️ Sentinel: Secure random password generation instead of hardcoded 'admin123'
           const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
           adminUser = await User.create({
             username: 'admin',
@@ -222,7 +222,7 @@ const authenticateUser = async (req, res, next) => {
   }
 
   try {
-    // ⚡ Bolt: Using .lean() to reduce memory and CPU overhead for read-only session lookups.
+    //  Bolt: Using .lean() to reduce memory and CPU overhead for read-only session lookups.
     const session = await Session.findOne({ token }).populate('userId').lean();
     if (!session || session.expiresAt < new Date()) {
       return res.status(401).json({
@@ -253,7 +253,7 @@ io.use(async (socket, next) => {
     let adminUser = await User.findOne({ username: 'admin' });
     if (!adminUser) {
       try {
-        // 🛡️ Sentinel: Secure random password generation instead of hardcoded 'admin123'
+        // ️ Sentinel: Secure random password generation instead of hardcoded 'admin123'
         const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
         adminUser = await User.create({
           username: 'admin',
@@ -271,7 +271,7 @@ io.use(async (socket, next) => {
   }
 
   try {
-    // ⚡ Bolt: Using .lean() to reduce memory and CPU overhead for read-only session lookups.
+    //  Bolt: Using .lean() to reduce memory and CPU overhead for read-only session lookups.
     const session = await Session.findOne({ token }).lean();
     if (!session || session.expiresAt < new Date()) {
       return next(new Error("Invalid or expired session"));
@@ -284,7 +284,7 @@ io.use(async (socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log(`🔌 Client connected to socket: ${socket.userId}`);
+  console.log(` Client connected to socket: ${socket.userId}`);
   
   if (socket.userId) {
     socket.join(socket.userId);
@@ -338,7 +338,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 🎙️ Voice Signaling & Call Rooms (Discord style WebRTC mesh)
+  // Mic Voice Signaling & Call Rooms (Discord style WebRTC mesh)
   socket.on('join-voice-room', async ({ roomId }) => {
     if (!roomId) return;
     try {
@@ -404,7 +404,7 @@ io.on('connection', (socket) => {
       }
       socket.emit('voice-room-peers', { peers: peerList });
       
-      console.log(`🎙️ Socket ${socket.id} (User: ${username}) joined voice room: ${roomId}`);
+      console.log(`Mic Socket ${socket.id} (User: ${username}) joined voice room: ${roomId}`);
     } catch (err) {
       console.error('Error in join-voice-room:', err);
     }
@@ -430,7 +430,7 @@ io.on('connection', (socket) => {
       userId: socket.userId
     });
     
-    console.log(`🎙️ Socket ${socket.id} left voice room: ${roomId}`);
+    console.log(`Mic Socket ${socket.id} left voice room: ${roomId}`);
   });
 
   socket.on('reject-voice-call', ({ roomId, hostId }) => {
@@ -465,9 +465,9 @@ io.on('connection', (socket) => {
         socketId: socket.id,
         userId: socket.userId
       });
-      console.log(`🎙️ Socket ${socket.id} disconnected, left voice room: ${roomId}`);
+      console.log(`Mic Socket ${socket.id} disconnected, left voice room: ${roomId}`);
     }
-    console.log(`🔌 Client disconnected from socket: ${socket.userId}`);
+    console.log(` Client disconnected from socket: ${socket.userId}`);
   });
 });
 
@@ -491,13 +491,13 @@ app.use('/api', (req, res, next) => {
 
 // Root endpoint for connectivity check
 app.get('/', (req, res) => {
-  res.send('🚀 Tapchat Backend is running on port 3005!');
+  res.send('Send Tapchat Backend is running on port 3005!');
 });
 
 // Healthcheck/Auth verify endpoint
 // Password hashing helper functions using native crypto module
 function hashPassword(password) {
-  // 🛡️ Sentinel: Enforce string type to prevent Object Type Confusion/DoS crashes in crypto module
+  // ️ Sentinel: Enforce string type to prevent Object Type Confusion/DoS crashes in crypto module
   if (typeof password !== 'string') {
     throw new Error('Password must be a string');
   }
@@ -508,7 +508,7 @@ function hashPassword(password) {
 
 function verifyPassword(password, storedPassword) {
   if (!storedPassword || !storedPassword.includes(':')) return false;
-  // 🛡️ Sentinel: Enforce string type to prevent Object Type Confusion/DoS crashes in crypto module
+  // ️ Sentinel: Enforce string type to prevent Object Type Confusion/DoS crashes in crypto module
   if (typeof password !== 'string') return false;
   const [salt, hash] = storedPassword.split(':');
   const checkHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
@@ -551,9 +551,9 @@ const PublicStatusSchema = new mongoose.Schema({
 
 // Ephemeral index (TTL 24 hours = 86400 seconds)
 PublicStatusSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
-// ⚡ Bolt: Add compound index for $in filter combined with .sort() to prevent slow in-memory sorts
-// ⚡ Bolt: Added compound index for userId and createdAt to prevent slow in-memory sorts during followed-statuses queries
-// ⚡ Bolt: Add compound index for followed stories query combining $in filter and sort
+//  Bolt: Add compound index for $in filter combined with .sort() to prevent slow in-memory sorts
+//  Bolt: Added compound index for userId and createdAt to prevent slow in-memory sorts during followed-statuses queries
+//  Bolt: Add compound index for followed stories query combining $in filter and sort
 PublicStatusSchema.index({ userId: 1, createdAt: -1 });
 
 const PublicStatus = mongoose.model('PublicStatus', PublicStatusSchema);
@@ -585,7 +585,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Formato de correo electrónico inválido.' });
     }
 
-    // ⚡ Bolt: Using .lean() to prevent Mongoose document instantiation for read-only existence check
+    //  Bolt: Using .lean() to prevent Mongoose document instantiation for read-only existence check
     const existingUser = await User.findOne({
       $or: [{ username: cleanUsername }, { email: cleanEmail }]
     }).lean();
@@ -689,7 +689,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const cleanIdentifier = String(identifier).trim().toLowerCase();
 
-    // ⚡ Bolt: Using .lean() to prevent Mongoose document instantiation for read-only auth check
+    //  Bolt: Using .lean() to prevent Mongoose document instantiation for read-only auth check
     const user = await User.findOne({
       $or: [{ username: cleanIdentifier }, { email: cleanIdentifier }]
     }).lean();
@@ -776,7 +776,7 @@ app.put('/api/auth/profile', async (req, res) => {
         return res.status(400).json({ error: 'El nombre de usuario debe tener al menos 3 caracteres.' });
       }
       if (cleanUsername !== user.username) {
-        // ⚡ Bolt: Using .lean() to prevent Mongoose document instantiation for read-only existence check
+        //  Bolt: Using .lean() to prevent Mongoose document instantiation for read-only existence check
         const duplicate = await User.findOne({ username: cleanUsername }).lean();
         if (duplicate) {
           return res.status(400).json({ error: 'El nombre de usuario ya está registrado por otra cuenta.' });
@@ -791,7 +791,7 @@ app.put('/api/auth/profile', async (req, res) => {
         return res.status(400).json({ error: 'Formato de correo electrónico inválido.' });
       }
       if (cleanEmail !== user.email) {
-        // ⚡ Bolt: Using .lean() to prevent Mongoose document instantiation for read-only existence check
+        //  Bolt: Using .lean() to prevent Mongoose document instantiation for read-only existence check
         const duplicate = await User.findOne({ email: cleanEmail }).lean();
         if (duplicate) {
           return res.status(400).json({ error: 'El correo electrónico ya está registrado por otra cuenta.' });
@@ -855,7 +855,7 @@ app.get('/api/users/search', async (req, res) => {
     };
 
     if (query) {
-      // 🛡️ Sentinel: Escape user input to prevent NoSQL Regex Injection/ReDoS
+      // ️ Sentinel: Escape user input to prevent NoSQL Regex Injection/ReDoS
       const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [
         { username: { $regex: safeQuery, $options: 'i' } },
@@ -863,7 +863,7 @@ app.get('/api/users/search', async (req, res) => {
       ];
     }
 
-    // ⚡ Bolt: Using .lean() to bypass Mongoose document instantiation, returning plain JS objects
+    //  Bolt: Using .lean() to bypass Mongoose document instantiation, returning plain JS objects
     // for significantly lower memory usage and faster read performance.
     const users = await User.find(filter)
       .select('_id username email avatarColor avatarUrl bio status publicKey')
@@ -900,7 +900,7 @@ app.get('/api/users/proximity', async (req, res) => {
     const userLat = req.user.latitude || 40.4167;
     const userLng = req.user.longitude || -3.7037;
 
-    // ⚡ Bolt: Using .lean() to bypass Mongoose document instantiation, returning plain JS objects
+    //  Bolt: Using .lean() to bypass Mongoose document instantiation, returning plain JS objects
     // for significantly lower memory usage and faster read performance.
     const allUsers = await User.find({
       _id: { $ne: req.user._id },
@@ -1116,10 +1116,10 @@ app.get('/api/check-auth', (req, res) => {
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tapchat')
   .then(async () => {
-    console.log('✅ MongoDB connected');
+    console.log(' MongoDB connected');
     await ensureCanonicalProviderFields();
   })
-  .catch(err => console.error('❌ MongoDB error:', err));
+  .catch(err => console.error('Close MongoDB error:', err));
 
 const MessageSchema = new mongoose.Schema({
   id: { type: String, index: true },
@@ -1215,7 +1215,7 @@ StatusArchiveSchema.index(
   { unique: true }
 );
 StatusArchiveSchema.index({ provider: 1, accountId: 1, timestamp: -1 });
-// ⚡ Bolt: Add missing compound index for fast lookup and sorting of statuses by owner/chat without an in-memory sort
+//  Bolt: Add missing compound index for fast lookup and sorting of statuses by owner/chat without an in-memory sort
 StatusArchiveSchema.index({ provider: 1, accountId: 1, statusOwnerId: 1, timestamp: -1 });
 
 const StatusArchive = mongoose.model('StatusArchive', StatusArchiveSchema);
@@ -1257,7 +1257,7 @@ async function loadAiConfig() {
       aiConfig.provider = getAiProvider(aiConfig);
     }
   } catch (error) {
-    console.error('⚠️ AI config load error:', error.message);
+    console.error('Warning AI config load error:', error.message);
   }
 }
 
@@ -1295,7 +1295,7 @@ function parseProviderContext(req = {}) {
   const provider = normalizeProvider(req.query?.provider || req.body?.provider || DEFAULT_PROVIDER);
   let accountId = normalizeAccountId(req.query?.accountId || req.body?.accountId || (req.user ? String(req.user._id) : '') || DEFAULT_ACCOUNT_ID);
 
-  // 🛡️ Sentinel: Fix IDOR by ensuring non-admin users can only access their own accountId or the shared default account
+  // ️ Sentinel: Fix IDOR by ensuring non-admin users can only access their own accountId or the shared default account
   if (req.user && req.user.username !== 'admin') {
     const userId = String(req.user._id);
     if (provider === 'local') {
@@ -1435,7 +1435,7 @@ function setSyncState(task, patch) {
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).catch((error) => {
-    console.error('⚠️ SyncState persistence error:', error.message);
+    console.error('Warning SyncState persistence error:', error.message);
   });
   return next;
 }
@@ -1574,7 +1574,7 @@ async function ensureCanonicalProviderFields() {
 
   if (chatResult.modifiedCount > 0 || messageResult.modifiedCount > 0 || syncStateResult.modifiedCount > 0 || statusArchiveResult.modifiedCount > 0) {
     console.log(
-      `🧩 Canonical field migration complete chats=${chatResult.modifiedCount} messages=${messageResult.modifiedCount} syncStates=${syncStateResult.modifiedCount} statusArchives=${statusArchiveResult.modifiedCount}`
+      ` Canonical field migration complete chats=${chatResult.modifiedCount} messages=${messageResult.modifiedCount} syncStates=${syncStateResult.modifiedCount} statusArchives=${statusArchiveResult.modifiedCount}`
     );
   }
 }
@@ -1670,7 +1670,7 @@ function logAiError(error, context = 'correct') {
   }
 
   console.error(
-    `❌ AI error [${context}] provider=${provider} model=${model} status=${status} detail=${detail}`
+    `Close AI error [${context}] provider=${provider} model=${model} status=${status} detail=${detail}`
   );
 }
 
@@ -1905,7 +1905,7 @@ async function buildMediaPayload(message, provider) {
   } catch (error) {
     const adapter = resolveProviderAdapter(normalizeProvider(provider));
     const msgCtx = adapter.extractMessageContext(message);
-    console.warn(`⚠️ Media download skipped for message ${msgCtx.providerMessageId || 'unknown'}:`, error.message);
+    console.warn(`Warning Media download skipped for message ${msgCtx.providerMessageId || 'unknown'}:`, error.message);
   }
 
   return { mediaType: null, imageDataUrl: null, mediaUrl: null, mimeType: null };
@@ -2006,7 +2006,7 @@ async function upsertChat(chatData, index, context = {}) {
     invalidateChatsCache(provider, accountId);
   } catch (err) {
     const chatCtx = resolveProviderAdapter(normalizeProvider(context.provider)).extractChatContext(chatData);
-    console.error(`❌ Error upserting chat ${chatCtx.chatId || 'unknown'}:`, err.message);
+    console.error(`Close Error upserting chat ${chatCtx.chatId || 'unknown'}:`, err.message);
   }
 }
 
@@ -2037,7 +2037,7 @@ async function upsertMessage(messageData, chatId, extraData = {}, context = {}) 
     const provider = normalizeProvider(context.provider);
     const adapter = resolveProviderAdapter(provider);
     const msgCtx = adapter.extractMessageContext(messageData);
-    console.error(`❌ Error upserting message ${msgCtx.providerMessageId || 'unknown'}:`, err.message);
+    console.error(`Close Error upserting message ${msgCtx.providerMessageId || 'unknown'}:`, err.message);
     return null;
   }
 }
@@ -2077,7 +2077,7 @@ async function fetchCurrentStatusDescriptors(provider) {
     const adapter = resolveProviderAdapter(provider);
     return await adapter.fetchStatusDescriptors();
   } catch (err) {
-    console.error(`⚠️ fetchStatusDescriptors error for ${provider}:`, err.message);
+    console.error(`Warning fetchStatusDescriptors error for ${provider}:`, err.message);
     return [];
   }
 }
@@ -2106,7 +2106,7 @@ async function archiveStatusFromDescriptor(entry = {}, source = 'poll', context 
     await adapter.markStatusRead().catch(() => {});
     statusMessage = await adapter.getMessageById(normalized.providerStatusMessageId).catch(() => null);
   } catch (err) {
-    console.warn('⚠️ Adapter call failed during archiveStatusFromDescriptor:', err.message);
+    console.warn('Warning Adapter call failed during archiveStatusFromDescriptor:', err.message);
   }
 
   if (!statusMessage) {
@@ -2214,12 +2214,12 @@ async function runStatusArchiveSweep(source = 'poll', context = {}) {
         else stats.skipped += 1;
       } else {
         stats.errors += 1;
-        console.error('⚠️ Status archive item error:', res.reason?.message || res.reason);
+        console.error('Warning Status archive item error:', res.reason?.message || res.reason);
       }
     }
   } catch (error) {
     stats.errors += 1;
-    console.error('⚠️ Status archive sweep error:', error.message);
+    console.error('Warning Status archive sweep error:', error.message);
   } finally {
     statusArchivePollInFlight = false;
     lastStatusArchiveRunAt = nowIso();
@@ -2234,7 +2234,7 @@ async function syncAllChats(context = {}) {
   const accountId = normalizeAccountId(context.accountId);
   const adapter = resolveProviderAdapter(provider);
   if (!adapter.isReady()) return;
-  console.log(`🔄 Starting full chat sync provider=${provider} account=${accountId}`);
+  console.log(` Starting full chat sync provider=${provider} account=${accountId}`);
   try {
     const chats = await adapter.listChats({ provider, accountId });
     if (!chats || chats.length === 0) return;
@@ -2245,9 +2245,9 @@ async function syncAllChats(context = {}) {
     );
 
     invalidateChatsCache(provider, accountId);
-    console.log(`✅ Synced ${chats.length} chats.`);
+    console.log(` Synced ${chats.length} chats.`);
   } catch (err) {
-    console.error('❌ Error in syncAllChats:', err.message);
+    console.error('Close Error in syncAllChats:', err.message);
   }
 }
 
@@ -2296,7 +2296,7 @@ async function syncChatMessages(chatId, limit = 50, context = {}) {
     invalidateMessagesCache(provider, accountId, chatId);
     invalidateChatsCache(provider, accountId);
   } catch (err) {
-    console.error(`❌ Error syncing messages for chat ${chatId}:`, err.message);
+    console.error(`Close Error syncing messages for chat ${chatId}:`, err.message);
   }
 }
 
@@ -2466,7 +2466,7 @@ async function getChatAvatar(chat, index, provider) {
     const adapter = resolveProviderAdapter(provider);
     avatarSourceUrl = await adapter.getChatAvatarUrl(chat);
   } catch (err) {
-    console.warn(`⚠️ Error resolving avatar for chat ${chatId}:`, err.message);
+    console.warn(`Warning Error resolving avatar for chat ${chatId}:`, err.message);
   }
 
   const avatarDataUrl = await toImageDataUrl(avatarSourceUrl);
@@ -2498,7 +2498,7 @@ async function handleMessageRevoke(after, before, context = {}) {
   const msgId = adapter.extractMessageContext(before || after).providerMessageId;
   if (!msgId) return;
 
-  console.log(`🗑️ Message revoked: ${msgId}`);
+  console.log(`Deleted Message revoked: ${msgId}`);
 
   try {
     const updated = await Message.findOneAndUpdate(
@@ -2515,7 +2515,7 @@ async function handleMessageRevoke(after, before, context = {}) {
       io.emit('message_updated', { ...updated, provider: context.provider, accountId: context.accountId });
     }
   } catch (err) {
-    console.error(`❌ Error handling revoke for ${msgId}:`, err.message);
+    console.error(`Close Error handling revoke for ${msgId}:`, err.message);
   }
 }
 
@@ -2523,7 +2523,7 @@ function bindProviderEvents(adapter, accountId) {
   const providerName = adapter.getProviderName();
 
   adapter.on('qr', (qr) => {
-    console.log('📡 QR Received - Emitting to frontend...');
+    console.log(' QR Received - Emitting to frontend...');
     const state = getProviderState(providerName);
     state.lastQR = qr;
     state.lastDisconnectReason = null;
@@ -2531,7 +2531,7 @@ function bindProviderEvents(adapter, accountId) {
   });
 
   adapter.on('ready', () => {
-    console.log(`✅ Client is ready for provider: ${providerName}!`);
+    console.log(` Client is ready for provider: ${providerName}!`);
     const state = getProviderState(providerName);
     state.lastQR = null;
     state.lastReadyAt = new Date().toISOString();
@@ -2546,7 +2546,7 @@ function bindProviderEvents(adapter, accountId) {
       reason: 'provider_ready'
     });
     runStatusArchiveSweep('poll', { provider: providerName, accountId }).catch((error) => {
-      console.error('⚠️ Initial status archive sweep failed:', error.message);
+      console.error('Warning Initial status archive sweep failed:', error.message);
     });
   });
 
@@ -2579,9 +2579,9 @@ function bindProviderEvents(adapter, accountId) {
 
         const descriptor = adapter.extractStatusDescriptor(msg);
         await archiveStatusFromDescriptor(descriptor, 'event', { provider: providerName, accountId });
-        console.log(`👁️ Status auto-visto [${descriptor.mediaType}] de: ${descriptor.statusOwnerId}`);
+        console.log(`️ Status auto-visto [${descriptor.mediaType}] de: ${descriptor.statusOwnerId}`);
       } catch (e) {
-        console.error('⚠️ Error al auto-ver status:', e.message);
+        console.error('Warning Error al auto-ver status:', e.message);
       }
       return; // No procesamos los estados como mensajes normales en la UI
     }
@@ -2622,7 +2622,7 @@ function bindProviderEvents(adapter, accountId) {
         await upsertChat(chat, 0, { provider: providerName, accountId });
       }
     } catch (err) {
-      console.error('⚠️ Failed to update chat on message_create:', err.message);
+      console.error('Warning Failed to update chat on message_create:', err.message);
     }
   });
 }
@@ -2638,7 +2638,7 @@ providerRegistry.initializeAll();
 setInterval(() => {
   for (const providerName of providerRegistry.listProviders()) {
     runStatusArchiveSweep('poll', { provider: providerName, accountId: DEFAULT_ACCOUNT_ID }).catch((error) => {
-      console.error(`⚠️ Scheduled status archive sweep failed for ${providerName}:`, error.message);
+      console.error(`Warning Scheduled status archive sweep failed for ${providerName}:`, error.message);
     });
   }
 }, STATUS_POLL_INTERVAL_MS);
@@ -2755,13 +2755,13 @@ app.get('/api/ai/config', async (_req, res) => {
     }
     res.json(configResponse);
   } catch (error) {
-    console.error('❌ Fetch AI config error:', error.message);
+    console.error('Close Fetch AI config error:', error.message);
     res.status(500).json({ error: 'Failed to fetch AI configuration' });
   }
 });
 
 app.put('/api/ai/config', async (req, res) => {
-  // 🛡️ Sentinel: Enforce admin authorization to prevent Broken Access Control and SSRF
+  // ️ Sentinel: Enforce admin authorization to prevent Broken Access Control and SSRF
   if (!req.user || req.user.username !== 'admin') {
     return res.status(403).json({ error: 'Forbidden: Only admin can modify AI configuration' });
   }
@@ -2836,7 +2836,7 @@ app.put('/api/ai/config', async (req, res) => {
     const saved = await saveAiConfig(nextConfig);
     res.json({ success: true, config: saved });
   } catch (error) {
-    console.error('❌ Save AI config error:', error.message);
+    console.error('Close Save AI config error:', error.message);
     res.status(500).json({ error: 'Failed to save AI config' });
   }
 });
@@ -2944,7 +2944,7 @@ app.get(['/api/chats', '/api/chats/:channelCode'], async (req, res) => {
       syncState: getSyncStateSnapshot(provider, accountId, '__all__', 'chats')
     });
   } catch (error) {
-    console.error('❌ Fetch chats error:', error.message);
+    console.error('Close Fetch chats error:', error.message);
     res.status(500).json({ error: 'Failed to fetch chats' });
   }
 });
@@ -3012,7 +3012,7 @@ app.get(['/api/chats/:chatId/messages', '/api/chats/:chatId/messages/:channelCod
       syncState: getSyncStateSnapshot(provider, accountId, chatId, 'messages')
     });
   } catch (error) {
-    console.error('❌ Fetch messages error details:', error);
+    console.error('Close Fetch messages error details:', error);
     res.status(500).json({ 
       error: 'Failed to fetch messages', 
       detail: error.message 
@@ -3069,7 +3069,7 @@ app.get(['/api/chats/:chatId/resources', '/api/chats/:chatId/resources/:channelC
       statuses
     });
   } catch (error) {
-    console.error('❌ Fetch resources error:', error.message);
+    console.error('Close Fetch resources error:', error.message);
     res.status(500).json({ error: 'Failed to fetch resources', detail: error.message });
   }
 });
@@ -3095,14 +3095,14 @@ app.post(['/api/chats/:chatId/read', '/api/chats/:chatId/read/:channelCode'], as
       const adapter = resolveProviderAdapter(provider);
       if (adapter.isReady()) {
         adapter.markRead({ provider, accountId, conversationId: chatId }).catch(err => {
-          console.warn(`⚠️ Failed to sendSeen via provider ${provider} for ${chatId}:`, err.message);
+          console.warn(`Warning Failed to sendSeen via provider ${provider} for ${chatId}:`, err.message);
         });
       }
     }
 
     res.json({ success: true, provider, accountId, conversationId: chatId });
   } catch (error) {
-    console.error('❌ Mark read error:', error.message);
+    console.error('Close Mark read error:', error.message);
     res.status(500).json({ error: 'Failed to mark chat as read' });
   }
 });
@@ -3305,7 +3305,7 @@ app.post(['/api/send', '/api/send/:channelCode'], async (req, res) => {
             conversationKey: `local:${senderId}:ai_assistant`,
             from: 'ai_assistant',
             to: senderId,
-            body: "⚠️ Error al conectar con el servidor de IA (LM Studio o Cloudflare). Por favor, comprueba que el servidor esté activo y la configuración en Ajustes sea correcta.",
+            body: "Warning Error al conectar con el servidor de IA (LM Studio o Cloudflare). Por favor, comprueba que el servidor esté activo y la configuración en Ajustes sea correcta.",
             fromMe: false,
             timestamp: Math.floor(Date.now() / 1000)
           });
@@ -3485,7 +3485,7 @@ app.post(['/api/send', '/api/send/:channelCode'], async (req, res) => {
     const detail = typeof error === 'object'
       ? (error.message || JSON.stringify(error))
       : String(error);
-    console.error('❌ Send error:', detail);
+    console.error('Close Send error:', detail);
 
     // Attempt to map specific errors to status codes
     let status = 500;
@@ -3526,7 +3526,7 @@ app.get(['/api/status', '/api/status/:channelCode'], async (req, res) => {
       uptimeSec: Math.floor(process.uptime())
     });
   } catch (error) {
-    console.error('❌ Status endpoint error:', error.message);
+    console.error('Close Status endpoint error:', error.message);
     res.status(500).json({ error: 'Failed to fetch status' });
   }
 });
@@ -3545,7 +3545,7 @@ app.get(['/api/status-archive', '/api/status-archive/:channelCode'], async (req,
       query.statusOwnerId = ownerId;
     }
 
-    // ⚡ Bolt: Removed createdAt: -1 from sort to utilize the {provider: 1, accountId: 1, timestamp: -1} compound index perfectly and avoid a slow in-memory sort
+    //  Bolt: Removed createdAt: -1 from sort to utilize the {provider: 1, accountId: 1, timestamp: -1} compound index perfectly and avoid a slow in-memory sort
     const items = await StatusArchive.find(query)
       .sort({ timestamp: -1 })
       .limit(limit)
@@ -3562,7 +3562,7 @@ app.get(['/api/status-archive', '/api/status-archive/:channelCode'], async (req,
       }
     });
   } catch (error) {
-    console.error('❌ Fetch status archive error:', error.message);
+    console.error('Close Fetch status archive error:', error.message);
     res.status(500).json({ error: 'Failed to fetch status archive', detail: error.message });
   }
 });
@@ -3597,7 +3597,7 @@ app.get(['/api/health', '/api/health/:channelCode'], async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Health endpoint error:', error.message);
+    console.error('Close Health endpoint error:', error.message);
     res.status(500).json({ error: 'Failed to fetch health' });
   }
 });
@@ -3631,7 +3631,7 @@ app.get(['/api/sync/state', '/api/sync/state/:channelCode'], async (req, res) =>
 
 const PORT = process.env.PORT || 3005;
 server.listen(PORT, () => {
-  console.log(`🚀 Backend running on http://localhost:${PORT}`);
+  console.log(`Send Backend running on http://localhost:${PORT}`);
 });
 
 loadAiConfig();

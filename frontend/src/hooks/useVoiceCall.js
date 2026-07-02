@@ -104,7 +104,7 @@ export function useVoiceCall({
 
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-        showNotice(`⚠️ Se cortó la conexión con ${peerInfo.username || "un participante"}.`, "warning");
+        showNotice(`Warning Se cortó la conexión con ${peerInfo.username || "un participante"}.`, "warning");
         setVoicePeers(prev => prev.filter(p => p.socketId !== peerSocketId));
       }
     };
@@ -157,7 +157,7 @@ export function useVoiceCall({
         startRingtone(false);
       }
       
-      showNotice("🎙️ Canal de voz iniciado.", "success");
+      showNotice("Mic Canal de voz iniciado.", "success");
     } catch (e) {
       console.error("Error joining voice room:", e);
       showNotice("No se pudo acceder al micrófono para la llamada.", "error");
@@ -195,7 +195,7 @@ export function useVoiceCall({
     setIncomingCallInfo(null);
     setOutgoingCallInfo(null);
     setIsCallMinimized(false);
-    showNotice("🚪 Has abandonado la llamada.", "info");
+    showNotice(" Has abandonado la llamada.", "info");
   }
 
   const toggleMute = () => {
@@ -206,7 +206,7 @@ export function useVoiceCall({
         track.enabled = !nextMute;
       });
       setIsMuted(nextMute);
-      showNotice(nextMute ? "🎤 Micrófono silenciado" : "🎤 Micrófono activo", "info");
+      showNotice(nextMute ? " Micrófono silenciado" : " Micrófono activo", "info");
     }
   };
 
@@ -236,7 +236,7 @@ export function useVoiceCall({
         stopScreenShare();
       };
       
-      showNotice("🖥️ Compartiendo pantalla.", "success");
+      showNotice("Screen Compartiendo pantalla.", "success");
     } catch (e) {
       console.error("Error starting screen share:", e);
       showNotice("No se pudo iniciar la compartición de pantalla.", "error");
@@ -256,7 +256,7 @@ export function useVoiceCall({
         pc.removeTrack(videoSender);
       }
     });
-    showNotice("🖥️ Se dejó de compartir pantalla.", "info");
+    showNotice("Screen Se dejó de compartir pantalla.", "info");
   };
 
   // Bind Voice WebRTC events when socket is connected
@@ -329,7 +329,7 @@ export function useVoiceCall({
       setActiveCallState("incoming");
       setIncomingCallInfo({ roomId, hostName, hostId, hostSocketId: hostSocketId || hostId });
       startRingtone(true);
-      showNotice(`📞 Llamada de voz entrante de ${hostName}.`, "info");
+      showNotice(`Call Llamada de voz entrante de ${hostName}.`, "info");
       
       if (document.hidden && "Notification" in window && Notification.permission === "granted") {
         try {
@@ -359,14 +359,14 @@ export function useVoiceCall({
     const handleVoiceCallRejected = () => {
       stopRingtone();
       leaveVoiceRoom();
-      showNotice("❌ La llamada fue rechazada.", "error");
+      showNotice("Close La llamada fue rechazada.", "error");
     };
 
     const handleVoiceCallCancelled = () => {
       stopRingtone();
       setActiveCallState("idle");
       setIncomingCallInfo(null);
-      showNotice("📞 La llamada fue cancelada.", "info");
+      showNotice("Call La llamada fue cancelada.", "info");
     };
 
     socket.on("voice-room-peers", handleVoiceRoomPeers);
