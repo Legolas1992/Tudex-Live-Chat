@@ -688,29 +688,7 @@ function App() {
     resolveUrls();
   }, [messages]);
 
-  const activeChatPublicKeyRef = useRef(null);
 
-  useEffect(() => {
-    activeChatPublicKeyRef.current = null;
-    if (!selectedChatId || !apiAuthenticated) return;
-    if (selectedChatId === 'ai_assistant' || selectedChat?.isGroup) return;
-
-    async function getChatPublicKey() {
-      try {
-        const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(selectedChatId)}/public-key`, {
-          headers: { "Authorization": `Bearer ${localStorage.getItem("tapchat_token")}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          activeChatPublicKeyRef.current = data.publicKey || null;
-          console.log(`[E2EE] Public key loaded for chat partner: ${selectedChatId} (${data.publicKey ? 'Found' : 'Not Found'})`);
-        }
-      } catch (err) {
-        console.warn("[E2EE] Failed to load chat partner public key:", err.message);
-      }
-    }
-    getChatPublicKey();
-  }, [selectedChatId, selectedChat, apiAuthenticated]);
 
   const [authMode, setAuthMode] = useState("login");
   const [username, setUsername] = useState("");
@@ -1128,6 +1106,30 @@ function App() {
     () => chats.find((chat) => chat.id === selectedChatId),
     [chats, selectedChatId]
   );
+
+  const activeChatPublicKeyRef = useRef(null);
+
+  useEffect(() => {
+    activeChatPublicKeyRef.current = null;
+    if (!selectedChatId || !apiAuthenticated) return;
+    if (selectedChatId === 'ai_assistant' || selectedChat?.isGroup) return;
+
+    async function getChatPublicKey() {
+      try {
+        const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(selectedChatId)}/public-key`, {
+          headers: { "Authorization": `Bearer ${localStorage.getItem("tapchat_token")}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          activeChatPublicKeyRef.current = data.publicKey || null;
+          console.log(`[E2EE] Public key loaded for chat partner: ${selectedChatId} (${data.publicKey ? 'Found' : 'Not Found'})`);
+        }
+      } catch (err) {
+        console.warn("[E2EE] Failed to load chat partner public key:", err.message);
+      }
+    }
+    getChatPublicKey();
+  }, [selectedChatId, selectedChat, apiAuthenticated]);
 
   // Voice Calls custom hook integration
   const {
