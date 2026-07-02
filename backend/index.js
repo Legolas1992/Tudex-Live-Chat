@@ -309,6 +309,35 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('send-reaction', async ({ providerMessageId, emoji }) => {
+    try {
+      const msgs = await Message.find({ providerMessageId });
+      if (!msgs.length) return;
+
+      const userObj = await User.findById(socket.userId);
+      const username = userObj ? userObj.username : 'Usuario';
+
+      for (const msg of msgs) {
+        if (!msg.reactions) msg.reactions = [];
+        // Remove existing reaction by same user
+        msg.reactions = msg.reactions.filter(r => r.userId !== socket.userId);
+        // Add new reaction if emoji is provided
+        if (emoji) {
+          msg.reactions.push({ emoji, userId: socket.userId, username });
+        }
+        await msg.save();
+
+        // Emit to the account owner
+        io.to(msg.accountId).emit('message-reacted', {
+          providerMessageId,
+          reactions: msg.reactions
+        });
+      }
+    } catch (err) {
+      console.error("Error saving reaction:", err);
+    }
+  });
+
   // 🎙️ Voice Signaling & Call Rooms (Discord style WebRTC mesh)
   socket.on('join-voice-room', async ({ roomId }) => {
     if (!roomId) return;
@@ -1116,7 +1145,8 @@ const MessageSchema = new mongoose.Schema({
   originalText: String,
   correctedText: String,
   sentText: String,
-  timestamp: Number
+  timestamp: Number,
+  reactions: [{ emoji: String, userId: String, username: String }]
 }, { timestamps: true });
 MessageSchema.index({ provider: 1, accountId: 1, conversationId: 1, timestamp: -1 });
 MessageSchema.index(
@@ -3069,6 +3099,77 @@ app.post(['/api/chats/:chatId/read', '/api/chats/:chatId/read/:channelCode'], as
   } catch (error) {
     console.error('❌ Mark read error:', error.message);
     res.status(500).json({ error: 'Failed to mark chat as read' });
+  }
+});
+
+const previewCache = new Map();
+
+app.get('/api/link-preview', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  if (previewCache.has(targetUrl)) {
+    return res.json(previewCache.get(targetUrl));
+  }
+
+  try {
+    const response = await axios.get(targetUrl, {
+      timeout: 4000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    const html = response.data;
+    if (typeof html !== 'string') {
+      throw new Error('Invalid response type');
+    }
+
+    const metadata = {
+      url: targetUrl,
+      title: '',
+      description: '',
+      image: '',
+      siteName: ''
+    };
+
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    if (titleMatch) metadata.title = titleMatch[1];
+
+    const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+    if (ogTitleMatch) metadata.title = ogTitleMatch[1];
+
+    const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
+                        html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i) ||
+                        html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+    if (ogDescMatch) metadata.description = ogDescMatch[1];
+
+    const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogImageMatch) metadata.image = ogImageMatch[1];
+
+    const ogSiteName = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i);
+    if (ogSiteName) metadata.siteName = ogSiteName[1];
+
+    // Clean HTML entities
+    for (const key in metadata) {
+      if (typeof metadata[key] === 'string') {
+        metadata[key] = metadata[key]
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#039;/g, "'");
+      }
+    }
+
+    previewCache.set(targetUrl, metadata);
+    res.json(metadata);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to scrape metadata', message: err.message });
   }
 });
 

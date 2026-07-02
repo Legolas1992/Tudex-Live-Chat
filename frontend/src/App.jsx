@@ -21,6 +21,9 @@ import {
   decryptMessage
 } from "./crypto";
 import { VirtualMessageList } from "./components/VirtualMessageList";
+import { useVoiceCall } from "./hooks/useVoiceCall";
+import { VoiceCallOverlay } from "./components/VoiceCallOverlay";
+import { cacheMediaFile, getCachedMediaUrl } from "./mediaCache";
 
 const defaultApiUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3005";
 
@@ -428,6 +431,34 @@ function App() {
   const draftInputRef = useRef(null);
   const syncRetryTimeoutRef = useRef(null);
   const syncAttemptsRef = useRef(0);
+  const iceServersRef = useRef([{ urls: "stun:stun.l.google.com:19302" }]);
+
+  // Media caching, Reactions, and Typing indicator upgrades
+  const [resolvedMediaUrls, setResolvedMediaUrls] = useState({});
+  const [activeReactionPicker, setActiveReactionPicker] = useState(null); // messageId or null
+  const lastTypingSignalRef = useRef(0);
+  const typingTimerRef = useRef(null);
+
+  const handleTyping = () => {
+    if (!socketRef.current || !selectedChatId) return;
+    const now = Date.now();
+    if (now - lastTypingSignalRef.current > 2000) {
+      lastTypingSignalRef.current = now;
+      socketRef.current.emit('chat_state', { chatId: selectedChatId, state: 'typing' });
+    }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      if (socketRef.current) {
+        socketRef.current.emit('chat_state', { chatId: selectedChatId, state: 'idle' });
+      }
+    }, 3000);
+  };
+
+  const sendReaction = (providerMessageId, emoji) => {
+    if (socketRef.current) {
+      socketRef.current.emit('send-reaction', { providerMessageId, emoji });
+    }
+  };
 
   const [apiAuthenticated, setApiAuthenticated] = useState(false);
   const [inputApiKey, setInputApiKey] = useState(localStorage.getItem("tapchat_api_key") || "");
@@ -639,6 +670,24 @@ function App() {
     selectedChatIdRef.current = selectedChatId;
   }, [selectedChatId]);
 
+  useEffect(() => {
+    async function resolveUrls() {
+      const updates = {};
+      for (const msg of messages) {
+        if (msg.mediaUrl && !resolvedMediaUrls[msg.mediaUrl]) {
+          const cachedUrl = await getCachedMediaUrl(msg.mediaUrl);
+          if (cachedUrl !== msg.mediaUrl) {
+            updates[msg.mediaUrl] = cachedUrl;
+          }
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        setResolvedMediaUrls(prev => ({ ...prev, ...updates }));
+      }
+    }
+    resolveUrls();
+  }, [messages]);
+
   const activeChatPublicKeyRef = useRef(null);
 
   useEffect(() => {
@@ -702,18 +751,7 @@ function App() {
   const [publishingStatus, setPublishingStatus] = useState(false);
   const [activeStoryIndex, setActiveStoryIndex] = useState(null);
 
-  // States for Discord-style WebRTC Voice Calls
-  const [localStream, setLocalStream] = useState(null);
-  const [screenStream, setScreenStream] = useState(null);
-  const [inVoiceCall, setInVoiceCall] = useState(false);
-  const [voiceRoomId, setVoiceRoomId] = useState(null);
-  const [voicePeers, setVoicePeers] = useState([]);
-  const [isMuted, setIsMuted] = useState(false);
-  const [activeCallState, setActiveCallState] = useState("idle"); // "idle", "calling", "incoming", "connected"
-  const [incomingCallInfo, setIncomingCallInfo] = useState(null);
-  const [outgoingCallInfo, setOutgoingCallInfo] = useState(null);
-  const [callVolume, setCallVolume] = useState(80);
-  const [isCallMinimized, setIsCallMinimized] = useState(false);
+
 
   useEffect(() => {
     if (isOffline && inVoiceCall) {
@@ -721,267 +759,6 @@ function App() {
       leaveVoiceRoom();
     }
   }, [isOffline, inVoiceCall]);
-
-  const peerConnectionsRef = useRef(new Map());
-  const localStreamRef = useRef(null);
-  const screenStreamRef = useRef(null);
-  const callRingtoneIntervalRef = useRef(null);
-  const callAudioCtxRef = useRef(null);
-
-  const startRingtone = (isIncoming) => {
-    try {
-      if (callAudioCtxRef.current) return;
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      callAudioCtxRef.current = new AudioCtx();
-      
-      const playBeep = () => {
-        if (!callAudioCtxRef.current || callAudioCtxRef.current.state === 'suspended') return;
-        const osc1 = callAudioCtxRef.current.createOscillator();
-        const osc2 = callAudioCtxRef.current.createOscillator();
-        const gainNode = callAudioCtxRef.current.createGain();
-        
-        osc1.frequency.value = isIncoming ? 400 : 440;
-        osc2.frequency.value = isIncoming ? 450 : 480;
-        
-        gainNode.gain.setValueAtTime(0, callAudioCtxRef.current.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.15, callAudioCtxRef.current.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.15, callAudioCtxRef.current.currentTime + (isIncoming ? 1.5 : 1.2));
-        gainNode.gain.linearRampToValueAtTime(0, callAudioCtxRef.current.currentTime + (isIncoming ? 1.7 : 1.4));
-        
-        osc1.connect(gainNode);
-        osc2.connect(gainNode);
-        gainNode.connect(callAudioCtxRef.current.destination);
-        
-        osc1.start();
-        osc2.start();
-        osc1.stop(callAudioCtxRef.current.currentTime + 2.0);
-        osc2.stop(callAudioCtxRef.current.currentTime + 2.0);
-      };
-      
-      playBeep();
-      callRingtoneIntervalRef.current = setInterval(playBeep, isIncoming ? 3000 : 4000);
-    } catch (e) {
-      console.warn("AudioContext ringtone failed to start:", e);
-    }
-  };
-
-  const stopRingtone = () => {
-    if (callRingtoneIntervalRef.current) {
-      clearInterval(callRingtoneIntervalRef.current);
-      callRingtoneIntervalRef.current = null;
-    }
-    if (callAudioCtxRef.current) {
-      try {
-        callAudioCtxRef.current.close();
-      } catch (e) {}
-      callAudioCtxRef.current = null;
-    }
-  };
-  const candidateQueueRef = useRef(new Map()); // socketId -> Array of ICE candidates
-
-  useEffect(() => {
-    if (activeStoryIndex === null) return;
-    const timer = setTimeout(() => {
-      if (activeStoryIndex < storyPlayList.length - 1) {
-        setActiveStoryIndex(activeStoryIndex + 1);
-      } else {
-        setActiveStoryIndex(null);
-      }
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [activeStoryIndex, storyPlayList.length]);
-
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      setUserBioInput(currentUser.bio || "¡Hola! Estoy usando Tapchat.");
-      setUserAvatarColorInput(currentUser.avatarColor || "hsl(200, 70%, 40%)");
-      setUserUsernameInput(currentUser.username || "");
-      setUserEmailInput(currentUser.email || "");
-      setUserPasswordInput("");
-      setUserAvatarUrlInput(currentUser.avatarUrl || "");
-    }
-  }, [currentUser]);
-
-  function createPeerConnection(peerSocketId, peerInfo, isOfferOriginator) {
-    const pc = new RTCPeerConnection({
-      iceServers: iceServersRef.current
-    });
-
-    peerConnectionsRef.current.set(peerSocketId, pc);
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, localStreamRef.current);
-      });
-    }
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && socketRef.current) {
-        socketRef.current.emit('send-voice-signal', {
-          to: peerSocketId,
-          signal: { candidate: event.candidate }
-        });
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-        showNotice(`⚠️ Se cortó la conexión con ${peerInfo.username || "un participante"}.`, "warning");
-        setVoicePeers(prev => prev.filter(p => p.socketId !== peerSocketId));
-      }
-    };
-
-    pc.ontrack = (event) => {
-      const remoteStream = event.streams[0];
-      setVoicePeers(prev => prev.map(p => {
-        if (p.socketId === peerSocketId) {
-          return { ...p, stream: remoteStream };
-        }
-        return p;
-      }));
-    };
-
-    if (isOfferOriginator) {
-      pc.createOffer().then(offer => {
-        return pc.setLocalDescription(offer);
-      }).then(() => {
-        socketRef.current.emit('send-voice-signal', {
-          to: peerSocketId,
-          signal: { sdp: pc.localDescription }
-        });
-      }).catch(e => console.error("Error creating WebRTC offer:", e));
-    }
-
-    return pc;
-  }
-
-  async function joinVoiceRoom(roomId, isAccepting = false) {
-    if (!roomId) return;
-    try {
-      await fetchIceServers();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      
-      socketRef.current.emit('join-voice-room', { roomId });
-      setInVoiceCall(true);
-      setVoiceRoomId(roomId);
-      setIsCallMinimized(false);
-      
-      if (isAccepting) {
-        stopRingtone();
-        setActiveCallState("connected");
-        setIncomingCallInfo(null);
-      } else {
-        setActiveCallState("calling");
-        setOutgoingCallInfo({ roomId, recipientName: selectedChat?.name || "Usuario" });
-        startRingtone(false);
-      }
-      
-      showNotice("🎙️ Canal de voz iniciado.", "success");
-    } catch (e) {
-      console.error("Error joining voice room:", e);
-      showNotice("No se pudo acceder al micrófono para la llamada.", "error");
-      stopRingtone();
-      setActiveCallState("idle");
-    }
-  }
-
-  function leaveVoiceRoom() {
-    stopRingtone();
-    if (socketRef.current) {
-      if (activeCallState === "calling" && voiceRoomId) {
-        socketRef.current.emit('cancel-voice-call', { roomId: voiceRoomId });
-      }
-      socketRef.current.emit('leave-voice-room');
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
-    }
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach(track => track.stop());
-      screenStreamRef.current = null;
-    }
-    setLocalStream(null);
-    setScreenStream(null);
-    peerConnectionsRef.current.forEach(pc => pc.close());
-    peerConnectionsRef.current.clear();
-    candidateQueueRef.current.clear();
-    setInVoiceCall(false);
-    setVoiceRoomId(null);
-    setVoicePeers([]);
-    setIsMuted(false);
-    setActiveCallState("idle");
-    setIncomingCallInfo(null);
-    setOutgoingCallInfo(null);
-    setIsCallMinimized(false);
-    showNotice("🚪 Has abandonado la llamada.", "info");
-  }
-
-  const toggleMute = () => {
-    if (localStreamRef.current) {
-      const audioTracks = localStreamRef.current.getAudioTracks();
-      const nextMute = !isMuted;
-      audioTracks.forEach(track => {
-        track.enabled = !nextMute;
-      });
-      setIsMuted(nextMute);
-      showNotice(nextMute ? "🎤 Micrófono silenciado" : "🎤 Micrófono activo", "info");
-    }
-  };
-
-  const startScreenShare = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      screenStreamRef.current = stream;
-      setScreenStream(stream);
-
-      const videoTrack = stream.getVideoTracks()[0];
-      
-      peerConnectionsRef.current.forEach(pc => {
-        const senders = pc.getSenders();
-        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-        if (videoSender) {
-          videoSender.replaceTrack(videoTrack);
-        } else {
-          pc.addTrack(videoTrack, stream);
-        }
-      });
-
-      videoTrack.onended = () => {
-        stopScreenShare();
-      };
-      
-      showNotice("🖥️ Compartiendo pantalla.", "success");
-    } catch (e) {
-      console.error("Error starting screen share:", e);
-      showNotice("No se pudo iniciar la compartición de pantalla.", "error");
-    }
-  };
-
-  const stopScreenShare = () => {
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach(track => track.stop());
-      screenStreamRef.current = null;
-    }
-    setScreenStream(null);
-    peerConnectionsRef.current.forEach(pc => {
-      const senders = pc.getSenders();
-      const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-      if (videoSender) {
-        pc.removeTrack(videoSender);
-      }
-    });
-    showNotice("🖥️ Se dejó de compartir pantalla.", "info");
-  };
 
   async function saveUserProfile() {
     const profilePayload = {
@@ -1360,6 +1137,35 @@ function App() {
     [chats, selectedChatId]
   );
 
+  // Voice Calls custom hook integration
+  const {
+    inVoiceCall,
+    voiceRoomId,
+    isCallMinimized,
+    voicePeers,
+    isMuted,
+    screenStream,
+    callVolume,
+    activeCallState,
+    incomingCallInfo,
+    outgoingCallInfo,
+    joinVoiceRoom,
+    leaveVoiceRoom,
+    toggleMute,
+    startScreenShare,
+    stopScreenShare,
+    setIsCallMinimized,
+    setCallVolume
+  } = useVoiceCall({
+    socketRef,
+    socketConnected,
+    currentUser,
+    selectedChat,
+    showNotice,
+    iceServers: iceServersRef.current,
+    setNotifications
+  });
+
   const filteredChats = useMemo(() => {
     const needle = chatSearch.trim().toLowerCase();
     if (!needle) return chats;
@@ -1593,6 +1399,9 @@ function App() {
     }
 
     const normalized = { ...msg, body: decryptedBody, _uiId: messageId(msg) };
+    if (normalized.mediaUrl) {
+      cacheMediaFile(normalized.mediaUrl);
+    }
     
     const isCurrentChat = selectedChatIdRef.current === msg.chatId;
     const isAppBackgrounded = document.hidden;
@@ -1889,6 +1698,16 @@ function App() {
         }));
       }
     });
+    socket.on("message-reacted", ({ providerMessageId, reactions }) => {
+      setMessages(prev => prev.map(m => m.providerMessageId === providerMessageId ? { ...m, reactions } : m));
+      setMessagesByChat(prev => {
+        const next = { ...prev };
+        for (const cId in next) {
+          next[cId] = next[cId].map(m => m.providerMessageId === providerMessageId ? { ...m, reactions } : m);
+        }
+        return next;
+      });
+    });
     socket.on("message_updated", (updated) => {
       const eventProvider = updated?.provider || DEFAULT_PROVIDER;
       const eventAccountId = updated?.accountId || DEFAULT_ACCOUNT_ID;
@@ -1909,127 +1728,9 @@ function App() {
       });
     });
 
-    // 🎙️ Voice Calls Socket Listeners
-    socket.on("voice-room-peers", ({ peers }) => {
-      setVoicePeers(peers.map(p => ({ ...p, stream: null })));
-      peers.forEach(peer => {
-        createPeerConnection(peer.socketId, peer, true);
-      });
-    });
-
-    socket.on("voice-peer-joined", (peer) => {
-      stopRingtone();
-      setActiveCallState("connected");
-      setVoicePeers(prev => {
-        if (prev.some(p => p.socketId === peer.socketId)) return prev;
-        return [...prev, { ...peer, stream: null }];
-      });
-      createPeerConnection(peer.socketId, peer, false);
-    });
-
-    socket.on("voice-peer-left", ({ socketId }) => {
-      setVoicePeers(prev => prev.filter(p => p.socketId !== socketId));
-      const pc = peerConnectionsRef.current.get(socketId);
-      if (pc) {
-        pc.close();
-        peerConnectionsRef.current.delete(socketId);
-      }
-    });
-
-    socket.on("voice-signal", ({ from, signal }) => {
-      const pc = peerConnectionsRef.current.get(from);
-      if (!pc) return;
-      if (signal.sdp) {
-        pc.setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(() => {
-          const queue = candidateQueueRef.current.get(from) || [];
-          queue.forEach(candidate => {
-            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding queued ICE candidate:", e));
-          });
-          candidateQueueRef.current.delete(from);
-
-          if (signal.sdp.type === 'offer') {
-            return pc.createAnswer().then(answer => {
-              return pc.setLocalDescription(answer);
-            }).then(() => {
-              socket.emit('send-voice-signal', {
-                to: from,
-                signal: { sdp: pc.localDescription }
-              });
-            });
-          }
-        }).catch(e => console.error("Error setting remote SDP:", e));
-      }
-      if (signal.candidate) {
-        if (pc.remoteDescription && pc.remoteDescription.type) {
-          pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(e => console.error("Error adding ICE candidate:", e));
-        } else {
-          if (!candidateQueueRef.current.has(from)) {
-            candidateQueueRef.current.set(from, []);
-          }
-          candidateQueueRef.current.get(from).push(signal.candidate);
-        }
-      }
-    });
-
-    socket.on("incoming-voice-call", ({ roomId, hostName, hostId, hostSocketId }) => {
-      setActiveCallState("incoming");
-      setIncomingCallInfo({ roomId, hostName, hostId, hostSocketId: hostSocketId || hostId });
-      startRingtone(true);
-      showNotice(`📞 Llamada de voz entrante de ${hostName}.`, "info");
-      
-      if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-        try {
-          new Notification(`Llamada entrante - Tapchat`, {
-            body: `${hostName} te está llamando de voz.`,
-            icon: '/pwa-192x192.png',
-            tag: roomId
-          });
-        } catch (e) {
-          console.error("Error creating call notification:", e);
-        }
-      }
-      
-      setNotifications(prev => [
-        {
-          id: Date.now(),
-          type: 'call',
-          text: `Llamada entrante de ${hostName}`,
-          time: 'Ahora'
-        },
-        ...prev
-      ]);
-    });
-
-    socket.on("voice-call-rejected", ({ roomId, rejecterId }) => {
-      stopRingtone();
-      leaveVoiceRoom();
-      showNotice("❌ La llamada fue rechazada.", "error");
-    });
-
-    socket.on("voice-call-cancelled", ({ roomId }) => {
-      stopRingtone();
-      setActiveCallState("idle");
-      setIncomingCallInfo(null);
-      showNotice("📞 La llamada fue cancelada.", "info");
-    });
-
     return () => {
       socket.off("new_message", handleNewMessage);
-      socket.off("voice-room-peers");
-      socket.off("voice-peer-joined");
-      socket.off("voice-peer-left");
-      socket.off("voice-signal");
-      socket.off("incoming-voice-call");
-      socket.off("voice-call-rejected");
-      socket.off("voice-call-cancelled");
       socket.close();
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
-      }
-      peerConnectionsRef.current.forEach(pc => pc.close());
-      peerConnectionsRef.current.clear();
-      stopRingtone();
     };
   }, [apiAuthenticated]);
 
@@ -2582,6 +2283,12 @@ function App() {
         .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
 
       const decryptedMessages = await decryptMessageList(safeMessages);
+
+      decryptedMessages.forEach(msg => {
+        if (msg.mediaUrl) {
+          cacheMediaFile(msg.mediaUrl);
+        }
+      });
 
       setMessagesByChat((prev) => ({ ...prev, [chatId]: decryptedMessages }));
       await setCachedMessages("local", currentUser?.id || DEFAULT_ACCOUNT_ID, chatId, decryptedMessages);
@@ -4622,245 +4329,25 @@ function App() {
               </div>
             </header>
 
-            {inVoiceCall && voiceRoomId === selectedChatId && !isCallMinimized && (
-              <div style={{ display: 'flex', flexDirection: 'column', width: '100%', zIndex: 10 }}>
-                <div style={{
-                  background: 'rgba(15, 23, 42, 0.95)',
-                  backdropFilter: 'blur(10px)',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                  padding: '12px 20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '15px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '50%',
-                        background: '#16a34a',
-                        boxShadow: '0 0 10px #16a34a',
-                        display: 'inline-block'
-                      }} />
-                      <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '600' }}>Llamada de Voz Activa</span>
-                    </div>
-                    
-                    {/* Participant Avatars */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '10px' }}>
-                      {/* Local User */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: currentUser?.avatarUrl ? 'transparent' : getAvatarGradient(currentUser?.avatarColor || currentUser?.id || 'me'),
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.65rem',
-                          fontWeight: '700',
-                          color: '#fff',
-                          overflow: 'hidden'
-                        }}>
-                          {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Yo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (currentUser?.username || "Yo").slice(0, 2).toUpperCase()}
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: '#eee' }}>Tú {isMuted ? '🔇' : '🎙️'}</span>
-                      </div>
-
-                      {/* Remote Peers */}
-                      {voicePeers.map(peer => (
-                        <div key={peer.socketId} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                          <div style={{
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            background: peer.avatarUrl ? 'transparent' : getAvatarGradient(peer.avatarColor || peer.userId),
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.65rem',
-                            fontWeight: '700',
-                            color: '#fff',
-                            overflow: 'hidden'
-                          }}>
-                            {peer.avatarUrl ? <img src={peer.avatarUrl} alt={peer.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : peer.username.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span style={{ fontSize: '0.75rem', color: '#eee' }}>{peer.username}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <button
-                      onClick={toggleMute}
-                      style={{
-                        background: isMuted ? '#ef4444' : 'rgba(255,255,255,0.1)',
-                        border: 'none',
-                        color: '#fff',
-                        borderRadius: '50%',
-                        width: '36px',
-                        height: '36px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        transition: 'all 0.2s',
-                        padding: 0
-                      }}
-                      title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
-                    >
-                      {isMuted ? "🔇" : "🎙️"}
-                    </button>
-                    <button
-                      onClick={screenStream ? stopScreenShare : startScreenShare}
-                      style={{
-                        background: screenStream ? '#16a34a' : 'rgba(255,255,255,0.1)',
-                        border: 'none',
-                        color: '#fff',
-                        borderRadius: '50%',
-                        width: '36px',
-                        height: '36px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        fontSize: '1.1rem',
-                        transition: 'all 0.2s',
-                        padding: 0
-                      }}
-                      title={screenStream ? "Dejar de compartir pantalla" : "Compartir pantalla"}
-                    >
-                      🖥️
-                    </button>
-                    
-                    {/* Volume Slider Control */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.06)', padding: '4px 10px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <span style={{ fontSize: '0.8rem', color: '#ccc' }}>🔊</span>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={callVolume}
-                        onChange={(e) => setCallVolume(parseInt(e.target.value))}
-                        style={{
-                          width: '70px',
-                          height: '4px',
-                          accentColor: '#ff6f24',
-                          cursor: 'pointer'
-                        }}
-                        title={`Volumen de llamada: ${callVolume}%`}
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => setIsCallMinimized(true)}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: 'none',
-                        color: '#fff',
-                        borderRadius: '8px',
-                        padding: '8px 14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: '600'
-                      }}
-                    >
-                      🗕 Minimizar
-                    </button>
-                    <button
-                      onClick={leaveVoiceRoom}
-                      style={{
-                        background: '#ef4444',
-                        border: 'none',
-                        color: '#fff',
-                        borderRadius: '8px',
-                        padding: '8px 14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: '600'
-                      }}
-                    >
-                      Desconectar
-                    </button>
-                  </div>
-                </div>
-
-                {/* Screen Share Video Stream Panel */}
-                {(screenStream || voicePeers.some(p => p.stream && p.stream.getVideoTracks().length > 0)) && (
-                  <div style={{
-                    background: '#0a0f1d',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                    padding: '10px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    maxHeight: '260px',
-                    position: 'relative'
-                  }}>
-                    {screenStream ? (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <video
-                          autoPlay
-                          playsInline
-                          muted
-                          ref={el => { if (el && el.srcObject !== screenStream) el.srcObject = screenStream; }}
-                          style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
-                        />
-                        <span style={{ fontSize: '0.75rem', color: '#a855f7', marginTop: '6px', fontWeight: '600' }}>Estás compartiendo tu pantalla</span>
-                      </div>
-                    ) : (
-                      (() => {
-                        const activeVideoPeer = voicePeers.find(p => p.stream && p.stream.getVideoTracks().length > 0);
-                        if (!activeVideoPeer) return null;
-                        return (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <video
-                              autoPlay
-                              playsInline
-                              ref={el => { if (el && el.srcObject !== activeVideoPeer.stream) el.srcObject = activeVideoPeer.stream; }}
-                              style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
-                            />
-                            <span style={{ fontSize: '0.75rem', color: '#ff6f24', marginTop: '6px', fontWeight: '600' }}>Pantalla compartida de {activeVideoPeer.username}</span>
-                          </div>
-                        );
-                      })()
-                    )}
-                  </div>
-                )}
-                
-                {/* Audio elements to play peer audio streams */}
-                <div style={{ display: 'none' }}>
-                  {voicePeers.map(peer => {
-                    if (!peer.stream) return null;
-                    return (
-                      <audio
-                        key={peer.socketId}
-                        autoPlay
-                        playsInline
-                        ref={el => {
-                          if (el && el.srcObject !== peer.stream) {
-                            el.srcObject = peer.stream;
-                          }
-                          if (el) {
-                            el.volume = callVolume / 100;
-                          }
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            <VoiceCallOverlay
+              inVoiceCall={inVoiceCall}
+              voiceRoomId={voiceRoomId}
+              selectedChatId={selectedChatId}
+              isCallMinimized={isCallMinimized}
+              voicePeers={voicePeers}
+              isMuted={isMuted}
+              screenStream={screenStream}
+              callVolume={callVolume}
+              currentUser={currentUser}
+              getAvatarGradient={getAvatarGradient}
+              toggleMute={toggleMute}
+              startScreenShare={startScreenShare}
+              stopScreenShare={stopScreenShare}
+              setCallVolume={setCallVolume}
+              setIsCallMinimized={setIsCallMinimized}
+              leaveVoiceRoom={leaveVoiceRoom}
+              apiUrl={API_URL}
+            />
 
             {messages.length === 0 ? (
               <div
@@ -4928,16 +4415,82 @@ function App() {
                         {msg.isRevoked ? (
                           <div className="revokedNotice">🗑️ Mensaje eliminado</div>
                         ) : null}
+                        
+                        {/* Reaction Picker Trigger Button */}
+                        {!msg.isRevoked && (
+                          <button
+                            type="button"
+                            className="reaction-picker-trigger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveReactionPicker(activeReactionPicker === msg._uiId ? null : msg._uiId);
+                            }}
+                            title="Reaccionar"
+                          >
+                            ☺+
+                          </button>
+                        )}
+
+                        {/* Reaction Picker Popup Menu */}
+                        {activeReactionPicker === msg._uiId && (
+                          <div className="reaction-picker-menu" onClick={(e) => e.stopPropagation()}>
+                            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className="reaction-emoji-btn"
+                                onClick={() => {
+                                  sendReaction(msg.providerMessageId, emoji);
+                                  setActiveReactionPicker(null);
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
                         {msg.mediaType === "image" && (msg.imageDataUrl || msg.mediaUrl) ? (
-                          <img className="msgImage" src={msg.mediaUrl ? `${API_URL}${msg.mediaUrl}` : msg.imageDataUrl} alt="Imagen del chat" />
+                          <img className="msgImage" src={resolvedMediaUrls[msg.mediaUrl] || (msg.mediaUrl ? `${API_URL}${msg.mediaUrl}` : msg.imageDataUrl)} alt="Imagen del chat" />
                         ) : null}
                         {msg.mediaType === "video" && msg.mediaUrl ? (
-                          <video className="msgVideo" src={`${API_URL}${msg.mediaUrl}`} controls />
+                          <video className="msgVideo" src={resolvedMediaUrls[msg.mediaUrl] || `${API_URL}${msg.mediaUrl}`} controls />
                         ) : null}
                         {msg.mediaType === "audio" && msg.mediaUrl ? (
-                          <audio className="msgAudio" src={`${API_URL}${msg.mediaUrl}`} controls />
+                          <audio className="msgAudio" src={resolvedMediaUrls[msg.mediaUrl] || `${API_URL}${msg.mediaUrl}`} controls />
                         ) : null}
                         <p className={msg.isRevoked ? "revokedText" : ""}>{msg.body || "[mensaje vacío]"}</p>
+
+                        {/* Reactions Badges */}
+                        {Array.isArray(msg.reactions) && msg.reactions.length > 0 && (
+                          <div className="message-reactions">
+                            {Object.entries(
+                              msg.reactions.reduce((acc, r) => {
+                                acc[r.emoji] = acc[r.emoji] || [];
+                                acc[r.emoji].push(r);
+                                return acc;
+                              }, {})
+                            ).map(([emoji, reactingUsers]) => {
+                              const hasReacted = reactingUsers.some(r => r.userId === currentUser?.id);
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  className={`reaction-badge ${hasReacted ? 'my-reaction' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendReaction(msg.providerMessageId, hasReacted ? null : emoji);
+                                  }}
+                                  title={reactingUsers.map(r => r.username).join(', ')}
+                                >
+                                  <span>{emoji}</span>
+                                  <span>{reactingUsers.length}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         <div className="bubbleMeta">
                           <time>{formatTime(msg.timestamp)}</time>
                           {msg.fromMe && <AckIcon status={msg.status || msg.ack} />}
@@ -4959,6 +4512,13 @@ function App() {
                   );
                 }}
               >
+                {typingStates[selectedChatId] && (
+                  <div className="typing-bubble">
+                    <div className="typing-dot"></div>
+                    <div className="typing-dot"></div>
+                    <div className="typing-dot"></div>
+                  </div>
+                )}
                 {showJumpToLatest ? (
                   <button
                     className="jumpToLatest"
@@ -5137,6 +4697,7 @@ function App() {
                       const val = e.target.value;
                       setDraft(val);
                       if (correctedDraft) setCorrectedDraft("");
+                      handleTyping();
 
                       if (debouncedDraftRef.current) clearTimeout(debouncedDraftRef.current);
                       if (val.trim().length > 5) {
@@ -6329,272 +5890,35 @@ function App() {
         </section>
       )}
 
-      {/* 📞 Outgoing Call Screen Overlay */}
-      {activeCallState === "calling" && outgoingCallInfo && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(11, 15, 26, 0.95)',
-          backdropFilter: 'blur(20px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          color: '#fff',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            width: '120px',
-            height: '120px',
-            borderRadius: '50%',
-            background: getAvatarGradient(selectedChatId),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '3rem',
-            fontWeight: 'bold',
-            boxShadow: '0 0 30px var(--accent-glow)',
-            marginBottom: '20px',
-            animation: 'pulse 2s infinite',
-            overflow: 'hidden'
-          }}>
-            {selectedChat?.avatarUrl ? (
-              <img src={selectedChat.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              (outgoingCallInfo.recipientName || "U").slice(0, 2).toUpperCase()
-            )}
-          </div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', margin: '10px 0' }}>{outgoingCallInfo.recipientName}</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '40px' }}>
-            Llamando...
-          </p>
-          <button
-            onClick={leaveVoiceRoom}
-            style={{
-              background: '#ef4444',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              fontSize: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)',
-              transition: 'all 0.2s'
-            }}
-            title="Cancelar llamada"
-          >
-            🔇
-          </button>
-        </div>
-      )}
-
-      {/* 📞 Incoming Call Screen Overlay */}
-      {activeCallState === "incoming" && incomingCallInfo && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(11, 15, 26, 0.95)',
-          backdropFilter: 'blur(20px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          color: '#fff',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            width: '120px',
-            height: '120px',
-            borderRadius: '50%',
-            background: getAvatarGradient(incomingCallInfo.hostId),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '3rem',
-            fontWeight: 'bold',
-            boxShadow: '0 0 30px rgba(0, 230, 118, 0.3)',
-            marginBottom: '20px',
-            animation: 'pulse 1.8s infinite',
-            overflow: 'hidden'
-          }}>
-            <span style={{ fontSize: '3rem' }}>📞</span>
-          </div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', margin: '10px 0' }}>{incomingCallInfo.hostName}</h2>
-          <p style={{ color: '#00e676', fontSize: '1.05rem', fontWeight: '600', marginBottom: '40px' }}>
-            Llamada de voz entrante
-          </p>
-          
-          <div style={{ display: 'flex', gap: '30px' }}>
-            {/* Accept Button */}
-            <button
-              onClick={() => {
-                setSelectedChatId(incomingCallInfo.roomId);
-                joinVoiceRoom(incomingCallInfo.roomId, true);
-              }}
-              style={{
-                background: '#00e676',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '50%',
-                width: '60px',
-                height: '60px',
-                fontSize: '1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 8px 24px rgba(0, 230, 118, 0.4)',
-                transition: 'all 0.2s'
-              }}
-              title="Aceptar llamada"
-            >
-              📞
-            </button>
-            
-            {/* Decline Button */}
-            <button
-              onClick={() => {
-                stopRingtone();
-                if (socketRef.current) {
-                  socketRef.current.emit("reject-voice-call", {
-                    roomId: incomingCallInfo.roomId,
-                    hostId: incomingCallInfo.hostSocketId
-                  });
-                }
-                setActiveCallState("idle");
-                setIncomingCallInfo(null);
-              }}
-              style={{
-                background: '#ef4444',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '50%',
-                width: '60px',
-                height: '60px',
-                fontSize: '1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)',
-                transition: 'all 0.2s'
-              }}
-              title="Rechazar llamada"
-            >
-              ❌
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 📞 Floating Call Widget (PIP) */}
-      {inVoiceCall && (isCallMinimized || voiceRoomId !== selectedChatId) && (
-        <div style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          background: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '12px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '15px',
-          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-          zIndex: 9999,
-          color: '#fff',
-          animation: 'slideIn 0.3s ease-out'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} /> En llamada
-            </span>
-            <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
-              {voicePeers.length > 0 ? `${voicePeers.length + 1} participantes` : "Esperando..."}
-            </span>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {/* Quick Mute */}
-            <button
-              onClick={toggleMute}
-              style={{
-                background: isMuted ? '#ef4444' : 'rgba(255,255,255,0.1)',
-                border: 'none',
-                color: '#fff',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                padding: 0
-              }}
-            >
-              {isMuted ? "🔇" : "🎙️"}
-            </button>
-            
-            {/* Maximizar */}
-            <button
-              onClick={() => {
-                if (voiceRoomId) {
-                  setSelectedChatId(voiceRoomId);
-                  setViewMode("chats");
-                }
-                setIsCallMinimized(false);
-              }}
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: 'none',
-                color: '#fff',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                padding: 0
-              }}
-              title="Maximizar"
-            >
-              🗖
-            </button>
-
-            {/* Hang Up */}
-            <button
-              onClick={leaveVoiceRoom}
-              style={{
-                background: '#ef4444',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                padding: 0
-              }}
-              title="Desconectar"
-            >
-              📞
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Voice call overlays (incoming, outgoing, minimized floating widget) */}
+      <VoiceCallOverlay
+        inVoiceCall={inVoiceCall}
+        voiceRoomId={voiceRoomId}
+        selectedChatId={selectedChatId}
+        isCallMinimized={isCallMinimized}
+        voicePeers={voicePeers}
+        isMuted={isMuted}
+        screenStream={screenStream}
+        callVolume={callVolume}
+        currentUser={currentUser}
+        getAvatarGradient={getAvatarGradient}
+        toggleMute={toggleMute}
+        startScreenShare={startScreenShare}
+        stopScreenShare={stopScreenShare}
+        setCallVolume={setCallVolume}
+        setIsCallMinimized={setIsCallMinimized}
+        leaveVoiceRoom={leaveVoiceRoom}
+        apiUrl={API_URL}
+        activeCallState={activeCallState}
+        incomingCallInfo={incomingCallInfo}
+        outgoingCallInfo={outgoingCallInfo}
+        joinVoiceRoom={joinVoiceRoom}
+        setSelectedChatId={setSelectedChatId}
+        setViewMode={setViewMode}
+        socketRef={socketRef}
+        setActiveCallState={setActiveCallState}
+        setIncomingCallInfo={setIncomingCallInfo}
+      />
 
       {toasts.length > 0 && (
         <div className="toast-container" aria-live="polite">
