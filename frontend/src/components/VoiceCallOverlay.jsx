@@ -1,6 +1,7 @@
 import React from "react";
 
 export function VoiceCallOverlay({
+  mode = "overlay", // "maximized" or "overlay"
   inVoiceCall,
   voiceRoomId,
   selectedChatId,
@@ -42,7 +43,7 @@ export function VoiceCallOverlay({
   };
 
   // 1. Fullscreen Outgoing Call Overlay
-  if (activeCallState === "calling" && outgoingCallInfo) {
+  if (mode === "overlay" && activeCallState === "calling" && outgoingCallInfo) {
     return (
       <div style={{
         position: 'fixed',
@@ -107,7 +108,7 @@ export function VoiceCallOverlay({
   }
 
   // 2. Fullscreen Incoming Call Overlay
-  if (activeCallState === "incoming" && incomingCallInfo) {
+  if (mode === "overlay" && activeCallState === "incoming" && incomingCallInfo) {
     return (
       <div style={{
         position: 'fixed',

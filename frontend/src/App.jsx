@@ -475,14 +475,16 @@ function App() {
     statusArchive: null
   });
 
-  const [toasts, setToasts] = useState([]);
-
   function showNotice(text, type = "info") {
-    const id = Date.now() + Math.random().toString(36);
-    setToasts(prev => [...prev, { id, text, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4500);
+    // Only trigger native system notifications for critical user events, and completely avoid showing visual banners in-app.
+    const isCritical = text.toLowerCase().includes("llamando") || 
+                       text.toLowerCase().includes("entrante") || 
+                       text.toLowerCase().includes("desconect") || 
+                       text.toLowerCase().includes("cort") || 
+                       text.toLowerCase().includes("conexi") ||
+                       text.toLowerCase().includes("llamada");
+    
+    if (!isCritical) return;
 
     if ("Notification" in window && Notification.permission === "granted") {
       try {
@@ -494,20 +496,18 @@ function App() {
             tag: "tapchat-notice",
             renotify: true
           });
-        }).catch(() => {
-          new Notification("Tapchat", {
-            body: text,
-            icon: "/favicon.ico"
-          });
         });
       } catch (e) {
-        new Notification("Tapchat", {
-          body: text,
-          icon: "/favicon.ico"
-        });
+        try {
+          new Notification("Tapchat", { body: text });
+        } catch (err) {
+          console.error("Native notification failed:", err);
+        }
       }
     }
   }
+
+
 
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState({});
@@ -2939,15 +2939,7 @@ function App() {
             </form>
           </section>
 
-          {toasts.length > 0 && (
-            <div className="toast-container" aria-live="polite">
-              {toasts.map(t => (
-                <div key={t.id} className={`toast ${t.type}`}>
-                  {t.text}
-                </div>
-              ))}
-            </div>
-          )}
+
         </main>
       </>
     );
@@ -3821,55 +3813,7 @@ function App() {
           {viewMode === "discover" && filteredProximityUsers.length === 0 ? <p className="helper">No hay usuarios cercanos.</p> : null}
           {viewMode === "muro" && filteredPublicStatuses.length === 0 ? <p className="helper">No hay estados públicos.</p> : null}
 
-          {viewMode === "notifications" && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px 0' }}>
-              {notifications.length === 0 ? (
-                <p className="helper">No tienes notificaciones nuevas.</p>
-              ) : (
-                notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    style={{
-                      display: 'flex',
-                      gap: '12px',
-                      padding: '12px',
-                      borderRadius: '14px',
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.05)',
-                      fontSize: '0.85rem',
-                      lineHeight: '1.4',
-                      alignItems: 'flex-start'
-                    }}
-                  >
-                    <span style={{ fontSize: '1.2rem', marginTop: '2px' }}>
-                      {notif.type === 'message' ? '️' : notif.type === 'success' ? '' : notif.type === 'warning' ? 'Warning' : 'ℹ️'}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: '#fff', fontWeight: '500' }}>{notif.text}</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>{notif.time}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setNotifications(prev => prev.filter(n => n.id !== notif.id))}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        padding: '0 4px',
-                        display: 'inline-flex'
-                      }}
-                      title="Eliminar"
-                      aria-label="Eliminar notificación"
-                    >
-                      Close
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+
         </div>
         <div style={{
           display: 'flex',
@@ -3983,52 +3927,7 @@ function App() {
             Muro
           </button>
           
-          <button
-            type="button"
-            onClick={() => {
-              setViewMode("notifications");
-              setSelectedChatId("");
-            }}
-            style={{
-              flex: 1,
-              background: 'transparent',
-              border: 'none',
-              color: viewMode === "notifications" ? '#ff6f24' : 'var(--text-muted)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer',
-              fontSize: '0.7rem',
-              fontWeight: viewMode === "notifications" ? '700' : '500',
-              transition: 'all 0.2s ease',
-              textShadow: viewMode === "notifications" ? '0 0 10px rgba(255, 111, 36, 0.3)' : 'none',
-              position: 'relative'
-            }}
-          >
-            <AlertIcon size={18} />
-            Alertas
-            {notifications.length > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '0px',
-                right: '20%',
-                background: '#ff6f24',
-                color: '#fff',
-                borderRadius: '50%',
-                width: '14px',
-                height: '14px',
-                fontSize: '9px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: '800',
-                border: '1px solid #1f2c33'
-              }}>
-                {notifications.length}
-              </span>
-            )}
-          </button>
+
         </div>
       </aside>
 
@@ -4334,6 +4233,7 @@ function App() {
             </header>
 
             <VoiceCallOverlay
+              mode="maximized"
               inVoiceCall={inVoiceCall}
               voiceRoomId={voiceRoomId}
               selectedChatId={selectedChatId}
@@ -5896,6 +5796,7 @@ function App() {
 
       {/* Voice call overlays (incoming, outgoing, minimized floating widget) */}
       <VoiceCallOverlay
+        mode="overlay"
         inVoiceCall={inVoiceCall}
         voiceRoomId={voiceRoomId}
         selectedChatId={selectedChatId}
@@ -5924,15 +5825,7 @@ function App() {
         setIncomingCallInfo={setIncomingCallInfo}
       />
 
-      {toasts.length > 0 && (
-        <div className="toast-container" aria-live="polite">
-          {toasts.map(t => (
-            <div key={t.id} className={`toast ${t.type}`}>
-              {t.text}
-            </div>
-          ))}
-        </div>
-      )}
+
       </main>
     </>
   );
