@@ -409,7 +409,9 @@ export function useVoiceCall({
     startScreenShare,
     stopScreenShare,
     setIsCallMinimized,
-    setCallVolume
+    setCallVolume,
+    setActiveCallState,
+    setIncomingCallInfo
   };
 }
 export default useVoiceCall;

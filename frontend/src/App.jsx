@@ -1149,7 +1149,9 @@ function App() {
     startScreenShare,
     stopScreenShare,
     setIsCallMinimized,
-    setCallVolume
+    setCallVolume,
+    setActiveCallState,
+    setIncomingCallInfo
   } = useVoiceCall({
     socketRef,
     socketConnected,
