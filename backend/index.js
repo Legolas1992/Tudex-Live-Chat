@@ -2761,6 +2761,11 @@ app.get('/api/ai/config', async (_req, res) => {
 });
 
 app.put('/api/ai/config', async (req, res) => {
+  // 🛡️ Sentinel: Enforce admin authorization to prevent Broken Access Control and SSRF
+  if (!req.user || req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: Only admin can modify AI configuration' });
+  }
+
   try {
     const nextConfig = {
       ...aiConfig
