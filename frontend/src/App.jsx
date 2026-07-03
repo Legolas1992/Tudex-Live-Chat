@@ -4593,6 +4593,12 @@ function App() {
                     aria-label="Adjuntar archivo"
                     title="Adjuntar archivo"
                     onClick={() => attachmentInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.currentTarget.click();
+                      }
+                    }}
                     style={{ fontSize: '1rem', color: '#94a3b8', cursor: 'pointer', userSelect: 'none', marginLeft: '8px', marginRight: '4px', fontWeight: '700' }}
                   >
                     Clip
