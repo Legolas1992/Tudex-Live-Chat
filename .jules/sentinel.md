@@ -27,3 +27,7 @@
 **Vulnerability:** Information leakage where internal AI service URLs (e.g., lmStudioBaseUrl) were exposed to non-admin users via read endpoints.
 **Learning:** API read endpoints (`GET`) needed by the frontend often expose configuration data that must be explicitly filtered or redacted based on user roles, since non-admins need access to the endpoint but shouldn't see sensitive internal routing.
 **Prevention:** Ensure the authorization condition fails closed for unauthenticated requests (e.g., `if (!req.user || req.user.username !== "admin")`) and explicitly overwrite sensitive properties with placeholder values (e.g., `********`) before returning the response payload.
+## 2024-07-03 - [Fix Server-Side Request Forgery (SSRF) in link preview endpoint]
+**Vulnerability:** The `/api/link-preview` endpoint fetched arbitrary URLs provided by the client using `axios.get(targetUrl)` without validating if the URL pointed to an internal/private IP or local network service, resulting in a Server-Side Request Forgery (SSRF) risk.
+**Learning:** Endpoints that act as a proxy or fetch external resources on behalf of the client must strictly validate and sanitize the target URL to prevent attackers from accessing internal infrastructure, local ports, or sensitive local services.
+**Prevention:** Always parse user-provided URLs and validate the protocol (allowing only http/https) and the hostname (blocking localhost, loopback IPs, and private network address ranges) before making outbound HTTP requests.
