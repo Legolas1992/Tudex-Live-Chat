@@ -3130,6 +3130,34 @@ app.get('/api/link-preview', async (req, res) => {
     return res.status(400).json({ error: 'URL is required' });
   }
 
+  // 🛡️ Sentinel: Validate URL to prevent SSRF
+  try {
+    const parsed = new URL(targetUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return res.status(400).json({ error: 'Invalid URL protocol' });
+    }
+    const hostname = parsed.hostname;
+    if (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]' || hostname === '::1') {
+      return res.status(400).json({ error: 'Localhost URLs are not allowed' });
+    }
+    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const match = hostname.match(ipv4Regex);
+    if (match) {
+      const p1 = parseInt(match[1], 10);
+      const p2 = parseInt(match[2], 10);
+      if (
+        p1 === 10 ||
+        (p1 === 172 && p2 >= 16 && p2 <= 31) ||
+        (p1 === 192 && p2 === 168) ||
+        (p1 === 169 && p2 === 254)
+      ) {
+        return res.status(400).json({ error: 'Private network URLs are not allowed' });
+      }
+    }
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid URL format' });
+  }
+
   if (previewCache.has(targetUrl)) {
     return res.json(previewCache.get(targetUrl));
   }
