@@ -481,9 +481,14 @@ app.use(express.json({ limit: '1mb' }));
 app.use(STATUS_ARCHIVE_PUBLIC_BASE, express.static(STATUS_ARCHIVE_DIR));
 app.use(MEDIA_ARCHIVE_PUBLIC_BASE, express.static(MEDIA_ARCHIVE_DIR));
 
-// Middleware global para proteger todas las rutas /api/ (incluyendo health y status, excepto auth de login y registro)
+// Middleware global para proteger todas las rutas /api/ (excepto auth de login, registro y endpoints de health)
 app.use('/api', (req, res, next) => {
-  if (req.path === '/auth/login' || req.path === '/auth/register') {
+  if (
+    req.path === '/auth/login' ||
+    req.path === '/auth/register' ||
+    req.path === '/health' ||
+    req.path.startsWith('/health/')
+  ) {
     return next();
   }
   return authenticateUser(req, res, next);
