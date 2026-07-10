@@ -1518,7 +1518,18 @@ function App() {
               body: previewText,
               icon: '/pwa-192x192.png',
               tag: msg.chatId,
-              data: { chatId: msg.chatId }
+              data: {
+                chatId: msg.chatId,
+                token: localStorage.getItem("tapchat_token") || localStorage.getItem("tapchat_api_key")
+              },
+              actions: [
+                {
+                  action: 'reply',
+                  type: 'text',
+                  title: 'Responder',
+                  placeholder: 'Escribe tu respuesta...'
+                }
+              ]
             };
             if (navigator.serviceWorker && navigator.serviceWorker.ready) {
               navigator.serviceWorker.ready.then(registration => {
