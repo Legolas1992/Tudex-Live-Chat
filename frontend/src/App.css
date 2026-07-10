@@ -788,9 +788,16 @@ button, textarea, input, select {
 
 @media (hover: hover) {
   .bubble:hover .bubbleActions {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+@media (hover: none) {
+  .bubbleActions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
   }
 }
 .bubble:focus-within .bubbleActions {
