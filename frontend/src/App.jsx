@@ -3533,6 +3533,7 @@ function App() {
                 const hasMyStatus = myActiveStatuses.length > 0;
                 return (
                   <button
+                    aria-label={hasMyStatus ? "Ver mi estado" : "Añadir nuevo estado"}
                     onClick={() => {
                       if (hasMyStatus) {
                         setStoryPlayList(myActiveStatuses);
@@ -3625,6 +3626,7 @@ function App() {
               {followedStories.map((story, idx) => (
                 <button
                   key={story._id}
+                  aria-label={"Ver estado de " + (story.statusOwnerName || story.statusOwnerId)}
                   onClick={() => {
                     viewPublicStatus(story._id); // Mark as viewed on backend
                     setStoryPlayList(followedStories);
