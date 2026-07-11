@@ -1087,7 +1087,8 @@ app.post('/api/public-statuses/:id/view', async (req, res) => {
 // Get followed active stories
 app.get('/api/followed-statuses', async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    // ⚡ Bolt: Using .lean() to bypass Mongoose document instantiation for read-only user query, reducing memory usage.
+    const user = await User.findById(req.user._id).lean();
     const followedIds = user.followedUsers || [];
 
     const statuses = await PublicStatus.find({
@@ -3398,7 +3399,8 @@ app.post(['/api/send', '/api/send/:channelCode'], async (req, res) => {
       }
 
       // Case B: User-to-User Chat
-      const receiver = await User.findById(receiverId);
+      // ⚡ Bolt: Using .lean() to bypass Mongoose document instantiation for read-only user query, reducing memory usage.
+      const receiver = await User.findById(receiverId).lean();
       if (!receiver) {
         return res.status(404).json({ error: 'El usuario destinatario no existe.' });
       }
