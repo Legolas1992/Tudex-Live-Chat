@@ -2839,6 +2839,7 @@ function App() {
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '4px' }}>
                       <button
+                        aria-label={`Iniciar chat con ${user.username}`}
                         onClick={() => {
                           const localChat = {
                             id: user._id,
@@ -2876,6 +2877,7 @@ function App() {
                         Chat
                       </button>
                       <button
+                        aria-label={user.isFollowed ? `Dejar de seguir a ${user.username}` : `Seguir a ${user.username}`}
                         onClick={() => toggleFollowUser(user._id, user.isFollowed)}
                         style={{
                           flex: 1,
@@ -3022,6 +3024,7 @@ function App() {
                       {/* Footer Actions */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
                         <button
+                          aria-label={status.isLiked ? "Ya no me gusta este estado" : "Me gusta este estado"}
                           onClick={() => likePublicStatus(status._id)}
                           style={{
                             background: 'transparent',
@@ -3817,6 +3820,7 @@ function App() {
                   <div className="correctedActions" style={{ display: 'flex', gap: '8px' }}>
                     <button
                       className="primary sendCorrectedBtn"
+                      aria-label="Enviar versión sugerida por IA"
                       onClick={() => sendMessage(correctedDraft, "corrected")}
                       style={{ flex: 1, padding: '8px 12px', borderRadius: '10px', fontWeight: '600' }}
                     >
@@ -3824,6 +3828,7 @@ function App() {
                     </button>
                     <button
                       className="secondary useCorrectedBtn"
+                      aria-label="Usar y editar versión sugerida por IA"
                       onClick={() => {
                         setDraft(correctedDraft);
                         setCorrectedDraft("");
@@ -4272,7 +4277,6 @@ function App() {
                         key={color}
                         type="button"
                         onClick={() => setUserAvatarColorInput(color)}
-                        aria-label={"Seleccionar color de avatar " + color}
                         style={{
                           width: '26px',
                           height: '26px',
@@ -5091,7 +5095,6 @@ function App() {
                     key={theme.id}
                     type="button"
                     onClick={() => setNewStatusBgTheme(theme.id)}
-                    aria-label={"Seleccionar fondo " + theme.label}
                     style={{
                       height: '45px',
                       borderRadius: '8px',
