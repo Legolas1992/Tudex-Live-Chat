@@ -1,6 +1,26 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { BaseAdapter } = require('./base-adapter');
 
+// 🛡️ Sentinel: Validate URL to prevent SSRF
+function isValidMediaUrl(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+
+    const hostname = parsed.hostname;
+    // Block localhost/loopback
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '0.0.0.0' || hostname === '[::]') return false;
+
+    // Block internal/private IP ranges and metadata IP
+    if (hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname === '169.254.169.254') return false;
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)) return false;
+
+    return true;
+  } catch (err) {
+    return false; // Invalid URL format
+  }
+}
+
 class WhatsAppAdapter extends BaseAdapter {
   constructor(options = {}) {
     super('whatsapp');
@@ -315,6 +335,9 @@ class WhatsAppAdapter extends BaseAdapter {
       if (mediaUrl || mediaBase64) {
         let media;
         if (mediaUrl) {
+          if (!isValidMediaUrl(mediaUrl)) {
+            throw new Error('Invalid or unsafe mediaUrl');
+          }
           media = await MessageMedia.fromUrl(mediaUrl).catch(e => {
             console.error('❌ Failed to fetch media from URL:', e.message);
             return null;
@@ -395,6 +418,9 @@ class WhatsAppAdapter extends BaseAdapter {
       if (mediaUrl || mediaBase64) {
         let media;
         if (mediaUrl) {
+          if (!isValidMediaUrl(mediaUrl)) {
+            throw new Error('Invalid or unsafe mediaUrl');
+          }
           media = await MessageMedia.fromUrl(mediaUrl).catch(e => {
             console.error('❌ Failed to fetch media from URL:', e.message);
             return null;
