@@ -2911,6 +2911,7 @@ function App() {
                 gap: '10px'
               }}>
                 <textarea
+                  aria-label="Escribir estado efímero"
                   value={newPublicStatusBody}
                   onChange={(e) => setNewPublicStatusBody(e.target.value)}
                   placeholder="Comparte algo efímero con el mundo... (Dura 24 horas)"
@@ -3737,6 +3738,7 @@ function App() {
                       <p className="queuedReplyLabel">Respuesta sugerida</p>
                       <p className="queuedReplyOriginal">{item.original}</p>
                       <textarea
+                        aria-label="Editar respuesta sugerida"
                         value={item.text}
                         onChange={(e) => updateQueuedReplyText(item.localId, e.target.value)}
                         rows={2}
@@ -3876,6 +3878,7 @@ function App() {
 
                   {/* Textarea inside Pill */}
                   <textarea
+                    aria-label="Escribir un mensaje"
                     ref={draftInputRef}
                     value={draft}
                     onChange={(e) => {
@@ -4294,7 +4297,7 @@ function App() {
                           e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
                         }}
                         title={color}
-                        aria-label={`Color de avatar ${color}`}
+
                       />
                     ))}
                   </div>
@@ -4674,6 +4677,7 @@ function App() {
 
             <div>
               <input
+                aria-label="Buscar por usuario o correo"
                 type="text"
                 value={searchUserQuery}
                 onChange={(e) => {
@@ -5103,7 +5107,7 @@ function App() {
                       boxShadow: newStatusBgTheme === theme.id ? '0 0 8px rgba(255,255,255,0.5)' : 'none'
                     }}
                     title={theme.label}
-                    aria-label={`Fondo ${theme.label}`}
+
                   />
                 ))}
               </div>
