@@ -398,7 +398,12 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
     }
 
-    const cleanUsername = String(username).trim().toLowerCase();
+    // 🛡️ Sentinel: Enforce primitive types to prevent Object Type Confusion/DoS
+    if (typeof username !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Los campos deben ser texto válido.' });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
     const cleanEmail = String(email).trim().toLowerCase();
 
     if (cleanUsername.length < 3) {
@@ -509,7 +514,12 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Usuario o correo y contraseña son requeridos.' });
     }
 
-    const cleanIdentifier = String(identifier).trim().toLowerCase();
+    // 🛡️ Sentinel: Enforce primitive types to prevent Object Type Confusion/DoS
+    if (typeof identifier !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Credenciales deben ser texto válido.' });
+    }
+
+    const cleanIdentifier = identifier.trim().toLowerCase();
 
     // ⚡ Bolt: Using .lean() to prevent Mongoose document instantiation for read-only auth check
     const user = await User.findOne({

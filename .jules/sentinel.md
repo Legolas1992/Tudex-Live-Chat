@@ -12,3 +12,8 @@
 **Vulnerability:** The unvalidated `password` property from user input (e.g., `req.body.password`) was passed directly into the native Node.js `crypto.pbkdf2Sync` method. An attacker could pass a NoSQL payload object instead of a string, causing a `TypeError` in the native module and crashing the node process, resulting in a Denial of Service (DoS).
 **Learning:** Native Node.js modules like `crypto` often lack the graceful error handling or implicit casting found in some higher-level frameworks. Feeding them unexpected object types (especially from unvalidated Express request payloads) can cause synchronous crashes that take down the entire server.
 **Prevention:** Always explicitly cast unvalidated user input properties to primitives (e.g., `String(password)`) before passing them to native Node.js methods like `crypto`.
+
+## 2024-06-18 - [Fix Object Type Confusion in Auth Endpoints]
+**Vulnerability:** The `/api/auth/register` and `/api/auth/login` endpoints were accepting arbitrary object types from `req.body` (e.g. `req.body.password` could be an object). While downstream functions like `hashPassword` now check types, allowing objects into the endpoint's core logic could lead to unintended stringification `[object Object]` or bypasses of simple length checks.
+**Learning:** Always validate that external input from `req.body` is of the expected primitive type at the very edge (the route handler) before any processing, string coercion, or business logic.
+**Prevention:** Explicitly check types using `typeof === 'string'` for sensitive inputs like identifiers and passwords at the start of the route handler.
