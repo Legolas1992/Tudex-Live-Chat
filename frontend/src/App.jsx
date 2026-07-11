@@ -4339,7 +4339,8 @@ function App() {
                   <h3>Estados archivados</h3>
                   <p>
                     {backendStatus.statusArchive?.lastRunAt
-                      ? `Última revisión ${new Date(backendStatus.statusArchive.lastRunAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                      // ⚡ Bolt: Use cached timeFormatter instead of toLocaleTimeString to prevent expensive Intl.DateTimeFormat instantiation on every render
+                      ? `Última revisión ${timeFormatter.format(new Date(backendStatus.statusArchive.lastRunAt))}`
                       : "Escaneo automático cada minuto"}
                   </p>
                 </div>
