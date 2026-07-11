@@ -3677,13 +3677,16 @@ function App() {
                       <div className="revokedNotice">🗑️ Mensaje eliminado</div>
                     ) : null}
                     {msg.mediaType === "image" && (msg.imageDataUrl || msg.mediaUrl) ? (
-                      <img className="msgImage" src={msg.mediaUrl ? `${API_URL}${msg.mediaUrl}` : msg.imageDataUrl} alt="Imagen del chat" />
+                      // ⚡ Bolt: Adding loading="lazy" to defer off-screen image loading
+                      <img loading="lazy" className="msgImage" src={msg.mediaUrl ? `${API_URL}${msg.mediaUrl}` : msg.imageDataUrl} alt="Imagen del chat" />
                     ) : null}
                     {msg.mediaType === "video" && msg.mediaUrl ? (
-                      <video className="msgVideo" src={`${API_URL}${msg.mediaUrl}`} controls />
+                      // ⚡ Bolt: Adding preload="none" to prevent automatic downloading of media data
+                      <video preload="none" className="msgVideo" src={`${API_URL}${msg.mediaUrl}`} controls />
                     ) : null}
                     {msg.mediaType === "audio" && msg.mediaUrl ? (
-                      <audio className="msgAudio" src={`${API_URL}${msg.mediaUrl}`} controls />
+                      // ⚡ Bolt: Adding preload="none" to prevent automatic downloading of media data
+                      <audio preload="none" className="msgAudio" src={`${API_URL}${msg.mediaUrl}`} controls />
                     ) : null}
                     <p className={msg.isRevoked ? "revokedText" : ""}>{msg.body || "[mensaje vacío]"}</p>
                     <div className="bubbleMeta">
@@ -4006,9 +4009,11 @@ function App() {
                     {resources.media.map(m => (
                       <div key={m._id || m.id || m.providerMessageId} className="resourceItem">
                         {m.mediaType === 'image' ? (
-                          <img src={`${API_URL}${m.mediaUrl}`} alt="media" />
+                          // ⚡ Bolt: Adding loading="lazy" to defer off-screen image loading
+                          <img loading="lazy" src={`${API_URL}${m.mediaUrl}`} alt="media" />
                         ) : m.mediaType === 'video' ? (
-                          <video src={`${API_URL}${m.mediaUrl}`} controls />
+                          // ⚡ Bolt: Adding preload="none" to prevent automatic downloading of media data
+                          <video preload="none" src={`${API_URL}${m.mediaUrl}`} controls />
                         ) : (
                           <div className="mediaFallback">{m.mediaType}</div>
                         )}
@@ -4038,9 +4043,11 @@ function App() {
                     {resources.statuses.map(s => (
                       <div key={s._id || s.id || s.providerStatusMessageId} className="resourceItem">
                          {s.mediaType === 'video' ? (
-                          <video src={`${API_URL}${s.mediaUrl}`} controls />
+                          // ⚡ Bolt: Adding preload="none" to prevent automatic downloading of media data
+                          <video preload="none" src={`${API_URL}${s.mediaUrl}`} controls />
                         ) : s.mediaUrl ? (
-                          <img src={`${API_URL}${s.mediaUrl}`} alt="status" />
+                          // ⚡ Bolt: Adding loading="lazy" to defer off-screen image loading
+                          <img loading="lazy" src={`${API_URL}${s.mediaUrl}`} alt="status" />
                         ) : (
                           <div className="mediaFallback">Texto</div>
                         )}
