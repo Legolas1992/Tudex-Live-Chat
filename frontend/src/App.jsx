@@ -4818,6 +4818,7 @@ function App() {
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
+              aria-label={`Historia de ${story.username}`}
               style={{
                 maxWidth: '440px',
                 width: '90%',
