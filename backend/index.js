@@ -3230,7 +3230,14 @@ app.post('/api/upload', express.json({ limit: '50mb' }), async (req, res) => {
     }
 
     const mediaSha256 = crypto.createHash('sha256').update(fileData).digest('hex');
-    const extension = path.extname(fileName) || '.png';
+
+    // 🛡️ Sentinel: Sanitize file extension to prevent Stored XSS via static serving
+    let extension = String(path.extname(fileName)).toLowerCase() || '.png';
+    const allowedExtensions = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.mp4', '.webm', '.mp3', '.wav', '.ogg', '.pdf']);
+    if (!allowedExtensions.has(extension)) {
+      extension = '.bin'; // Fallback for unsafe/unknown extensions
+    }
+
     const archivedFileName = `media-${Date.now()}-${mediaSha256.slice(0, 16)}${extension}`;
     const filePath = path.join(MEDIA_ARCHIVE_DIR, archivedFileName);
 
