@@ -398,8 +398,13 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
     }
 
-    const cleanUsername = String(username).trim().toLowerCase();
-    const cleanEmail = String(email).trim().toLowerCase();
+    // 🛡️ Sentinel: Enforce string type for sensitive inputs to prevent Object Type Confusion
+    if (typeof username !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Tipo de dato inválido.' });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (cleanUsername.length < 3) {
       return res.status(400).json({ error: 'El nombre de usuario debe tener al menos 3 caracteres.' });
@@ -509,7 +514,12 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Usuario o correo y contraseña son requeridos.' });
     }
 
-    const cleanIdentifier = String(identifier).trim().toLowerCase();
+    // 🛡️ Sentinel: Enforce string type for sensitive inputs to prevent Object Type Confusion
+    if (typeof identifier !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Tipo de dato inválido.' });
+    }
+
+    const cleanIdentifier = identifier.trim().toLowerCase();
 
     // ⚡ Bolt: Using .lean() to prevent Mongoose document instantiation for read-only auth check
     const user = await User.findOne({
@@ -591,7 +601,8 @@ app.put('/api/auth/profile', async (req, res) => {
     }
 
     if (username !== undefined) {
-      const cleanUsername = String(username).trim().toLowerCase();
+      if (typeof username !== 'string') return res.status(400).json({ error: 'Tipo de dato inválido.' });
+      const cleanUsername = username.trim().toLowerCase();
       if (cleanUsername.length < 3) {
         return res.status(400).json({ error: 'El nombre de usuario debe tener al menos 3 caracteres.' });
       }
@@ -606,7 +617,8 @@ app.put('/api/auth/profile', async (req, res) => {
     }
 
     if (email !== undefined) {
-      const cleanEmail = String(email).trim().toLowerCase();
+      if (typeof email !== 'string') return res.status(400).json({ error: 'Tipo de dato inválido.' });
+      const cleanEmail = email.trim().toLowerCase();
       if (!/\S+@\S+\.\S+/.test(cleanEmail)) {
         return res.status(400).json({ error: 'Formato de correo electrónico inválido.' });
       }
@@ -621,7 +633,8 @@ app.put('/api/auth/profile', async (req, res) => {
     }
 
     if (password !== undefined && password !== '') {
-      const trimmedPass = String(password).trim();
+      if (typeof password !== 'string') return res.status(400).json({ error: 'Tipo de dato inválido.' });
+      const trimmedPass = password.trim();
       if (trimmedPass.length < 4) {
         return res.status(400).json({ error: 'La contraseña debe tener al menos 4 caracteres.' });
       }

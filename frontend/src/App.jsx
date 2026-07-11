@@ -4294,7 +4294,6 @@ function App() {
                           e.currentTarget.style.transform = userAvatarColorInput === color ? 'scale(1.2)' : 'none';
                         }}
                         title={color}
-                        aria-label={`Color de avatar ${color}`}
                       />
                     ))}
                   </div>
@@ -5103,7 +5102,6 @@ function App() {
                       boxShadow: newStatusBgTheme === theme.id ? '0 0 8px rgba(255,255,255,0.5)' : 'none'
                     }}
                     title={theme.label}
-                    aria-label={`Fondo ${theme.label}`}
                   />
                 ))}
               </div>
