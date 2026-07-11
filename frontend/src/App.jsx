@@ -25,6 +25,44 @@ import { useVoiceCall } from "./hooks/useVoiceCall";
 import { VoiceCallOverlay } from "./components/VoiceCallOverlay";
 import { cacheMediaFile, getCachedMediaUrl } from "./mediaCache";
 
+const MemoizedMessageReactions = React.memo(({ reactions, currentUser, onSendReaction, providerMessageId }) => {
+  const groupedReactions = React.useMemo(() => {
+    if (!Array.isArray(reactions) || reactions.length === 0) return [];
+    return Object.entries(
+      reactions.reduce((acc, r) => {
+        acc[r.emoji] = acc[r.emoji] || [];
+        acc[r.emoji].push(r);
+        return acc;
+      }, {})
+    );
+  }, [reactions]);
+
+  if (groupedReactions.length === 0) return null;
+
+  return (
+    <div className="message-reactions">
+      {groupedReactions.map(([emoji, reactingUsers]) => {
+        const hasReacted = reactingUsers.some(r => r.userId === currentUser?.id);
+        return (
+          <button
+            key={emoji}
+            type="button"
+            className={`reaction-badge ${hasReacted ? 'my-reaction' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSendReaction(providerMessageId, hasReacted ? null : emoji);
+            }}
+            title={reactingUsers.map(r => r.username).join(', ')}
+          >
+            <span>{emoji}</span>
+            <span>{reactingUsers.length}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
 const defaultApiUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3005";
 
 console.log("[Tapchat] API target:", defaultApiUrl);
@@ -494,11 +532,11 @@ function App() {
     }, 3000);
   };
 
-  const sendReaction = (providerMessageId, emoji) => {
+  const sendReaction = React.useCallback((providerMessageId, emoji) => {
     if (socketRef.current) {
       socketRef.current.emit('send-reaction', { providerMessageId, emoji });
     }
-  };
+  }, []);
 
   const [apiAuthenticated, setApiAuthenticated] = useState(false);
   const [inputApiKey, setInputApiKey] = useState(localStorage.getItem("tapchat_api_key") || "");
@@ -4635,34 +4673,12 @@ function App() {
                         ) : null}
 
                         {/* Reactions Badges */}
-                        {Array.isArray(msg.reactions) && msg.reactions.length > 0 && (
-                          <div className="message-reactions">
-                            {Object.entries(
-                              msg.reactions.reduce((acc, r) => {
-                                acc[r.emoji] = acc[r.emoji] || [];
-                                acc[r.emoji].push(r);
-                                return acc;
-                              }, {})
-                            ).map(([emoji, reactingUsers]) => {
-                              const hasReacted = reactingUsers.some(r => r.userId === currentUser?.id);
-                              return (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  className={`reaction-badge ${hasReacted ? 'my-reaction' : ''}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    sendReaction(msg.providerMessageId, hasReacted ? null : emoji);
-                                  }}
-                                  title={reactingUsers.map(r => r.username).join(', ')}
-                                >
-                                  <span>{emoji}</span>
-                                  <span>{reactingUsers.length}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                        <MemoizedMessageReactions
+                          reactions={msg.reactions}
+                          currentUser={currentUser}
+                          onSendReaction={sendReaction}
+                          providerMessageId={msg.providerMessageId}
+                        />
 
                         <div className="bubbleMeta">
                           <time>{formatTime(msg.timestamp)}</time>
