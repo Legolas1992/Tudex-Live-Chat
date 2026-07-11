@@ -329,6 +329,10 @@ function hashPassword(password) {
   if (typeof password !== 'string') {
     throw new Error('Password must be a string');
   }
+  // 🛡️ Sentinel: Enforce length limit to prevent CPU exhaustion/DoS from synchronous hashing
+  if (password.length > 72) {
+    throw new Error('Password length exceeds maximum limit of 72 characters');
+  }
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
   return `${salt}:${hash}`;
@@ -338,6 +342,8 @@ function verifyPassword(password, storedPassword) {
   if (!storedPassword || !storedPassword.includes(':')) return false;
   // 🛡️ Sentinel: Enforce string type to prevent Object Type Confusion/DoS crashes in crypto module
   if (typeof password !== 'string') return false;
+  // 🛡️ Sentinel: Enforce length limit to prevent CPU exhaustion/DoS from synchronous hashing
+  if (password.length > 72) return false;
   const [salt, hash] = storedPassword.split(':');
   const checkHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
   return hash === checkHash;
