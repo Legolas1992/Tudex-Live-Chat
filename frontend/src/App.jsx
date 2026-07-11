@@ -3212,7 +3212,7 @@ function App() {
                       title="Eliminar"
                       aria-label="Eliminar notificación"
                     >
-                      ❌
+                      <CloseIcon size={14} />
                     </button>
                   </div>
                 ))
@@ -3809,7 +3809,7 @@ function App() {
                       title="Descartar"
                       aria-label="Descartar versión sugerida"
                     >
-                      ✕
+                      <CloseIcon size={14} />
                     </button>
                   </div>
                   <p className="correctedText" style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: '#f8fafc', lineHeight: '1.4' }}>{correctedDraft}</p>
@@ -4920,7 +4920,7 @@ function App() {
                     fontSize: '1rem'
                   }}
                 >
-                  ✕
+                  <CloseIcon size={16} />
                 </button>
               </div>
 
