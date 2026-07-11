@@ -3022,6 +3022,7 @@ function App() {
                       {/* Footer Actions */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
                         <button
+                          aria-label={status.isLiked ? "Quitar me gusta" : "Dar me gusta"}
                           onClick={() => likePublicStatus(status._id)}
                           style={{
                             background: 'transparent',
@@ -3645,6 +3646,7 @@ function App() {
                     } ${msg.isRevoked ? "isRevoked" : ""}`}
                     tabIndex={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? 0 : undefined}
                     role={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "button" : undefined}
+                    aria-label={!msg.fromMe && grammarInsights[msg._uiId]?.hasErrors ? "Responder corrigiendo errores gramaticales" : undefined}
                     onClick={
                       !msg.fromMe && grammarInsights[msg._uiId]?.hasErrors
                         ? () => prepareGrammarReply(msg)
@@ -4272,7 +4274,6 @@ function App() {
                         key={color}
                         type="button"
                         onClick={() => setUserAvatarColorInput(color)}
-                        aria-label={"Seleccionar color de avatar " + color}
                         style={{
                           width: '26px',
                           height: '26px',
@@ -5091,7 +5092,6 @@ function App() {
                     key={theme.id}
                     type="button"
                     onClick={() => setNewStatusBgTheme(theme.id)}
-                    aria-label={"Seleccionar fondo " + theme.label}
                     style={{
                       height: '45px',
                       borderRadius: '8px',
