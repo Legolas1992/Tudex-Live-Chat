@@ -36,6 +36,70 @@ const DEFAULT_ACCOUNT_ID = "default";
 
 // We will extract these dynamic parameters where applicable if needed.
 
+// ⚡ Bolt: Isolated search input component to prevent full App re-renders on every keystroke.
+function ChatSearchInput({ chatSearch, setChatSearch, viewMode, searchInputRef }) {
+  const [localChatSearch, setLocalChatSearch] = useState(chatSearch);
+  const debounceRef = useRef(null);
+
+  useEffect(() => {
+    setLocalChatSearch(chatSearch);
+  }, [chatSearch]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setLocalChatSearch(val);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setChatSearch(val);
+    }, 300);
+  };
+
+  return (
+    <>
+      <input
+        id="chatSearchInput"
+        ref={searchInputRef}
+        type="text"
+        value={localChatSearch}
+        onChange={handleChange}
+        placeholder={viewMode === "statuses" ? "Buscar estado..." : "Buscar chat... (Ctrl+K)"}
+        style={{ flex: 1, paddingLeft: '36px', paddingRight: localChatSearch ? '36px' : '12px' }}
+      />
+      {localChatSearch && (
+        <button
+          className="iconButton"
+          onClick={() => {
+            setLocalChatSearch("");
+            setChatSearch("");
+            searchInputRef.current?.focus();
+          }}
+          title="Borrar búsqueda"
+          aria-label="Borrar búsqueda"
+          style={{
+            position: 'absolute',
+            right: viewMode !== "statuses" ? '46px' : '8px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2
+          }}
+        >
+          <CloseIcon size={14} />
+        </button>
+      )}
+    </>
+  );
+}
+
 function parseApiItemsPayload(payload) {
   if (Array.isArray(payload)) {
     return {
@@ -434,24 +498,6 @@ function App() {
   );
 
   const [chatSearch, setChatSearch] = useState("");
-  const [localChatSearch, setLocalChatSearch] = useState("");
-  const chatSearchDebounceRef = useRef(null);
-
-  useEffect(() => {
-    setLocalChatSearch(chatSearch);
-  }, [chatSearch]);
-
-  const handleChatSearchChange = (e) => {
-    const val = e.target.value;
-    setLocalChatSearch(val);
-    if (chatSearchDebounceRef.current) {
-      clearTimeout(chatSearchDebounceRef.current);
-    }
-    // ⚡ Bolt: Debounce the search input to prevent excessive React re-renders and hook recalculations
-    chatSearchDebounceRef.current = setTimeout(() => {
-      setChatSearch(val);
-    }, 300);
-  };
 
   const [chats, setChats] = useState([]);
   const [viewMode, setViewMode] = useState("chats");
@@ -2495,44 +2541,12 @@ function App() {
             {viewMode === "statuses" ? "Buscar estado" : "Buscar chat"}
           </label>
           <SearchIcon size={16} className="searchIconSvg" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-          <input
-            id="chatSearchInput"
-            ref={searchInputRef}
-            type="text"
-            value={localChatSearch}
-            onChange={handleChatSearchChange}
-            placeholder={viewMode === "statuses" ? "Buscar estado..." : "Buscar chat... (Ctrl+K)"}
-            style={{ flex: 1, paddingLeft: '36px', paddingRight: localChatSearch ? '36px' : '12px' }}
+          <ChatSearchInput
+            chatSearch={chatSearch}
+            setChatSearch={setChatSearch}
+            viewMode={viewMode}
+            searchInputRef={searchInputRef}
           />
-          {localChatSearch && (
-            <button
-              className="iconButton"
-              onClick={() => {
-                setLocalChatSearch("");
-                setChatSearch("");
-                searchInputRef.current?.focus();
-              }}
-              title="Borrar búsqueda"
-              aria-label="Borrar búsqueda"
-              style={{
-                position: 'absolute',
-                right: viewMode !== "statuses" ? '46px' : '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 2
-              }}
-            >
-              <CloseIcon size={14} />
-            </button>
-          )}
           {viewMode !== "statuses" && (
             <button
               type="button"
