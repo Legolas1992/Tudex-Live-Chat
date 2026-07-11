@@ -2421,7 +2421,7 @@ function App() {
           <h2>
             {viewMode === "chats" ? "Chats" : viewMode === "statuses" ? "Estados" : "Notificaciones"}
             {viewMode === "chats" && syncingChats && (
-              <span className="syncIndicator" title="Sincronizando chats..." aria-live="polite"><ReloadIcon size={14} className="spinning" style={{ marginLeft: '6px', display: 'inline-block', verticalAlign: 'middle' }} /></span>
+              <span className="syncIndicator" title="Sincronizando chats..." aria-label="Sincronizando chats..." aria-live="polite"><ReloadIcon size={14} className="spinning" style={{ marginLeft: '6px', display: 'inline-block', verticalAlign: 'middle' }} /></span>
             )}
           </h2>
           <div className="headerActions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3095,7 +3095,7 @@ function App() {
                       if (!sentiment) return null;
                       return (
                         <span 
-                          title={`Análisis de Sentimiento: ${sentiment.label}`} 
+                          title={`Análisis de Sentimiento: ${sentiment.label}`} aria-label={`Análisis de Sentimiento: ${sentiment.label}`}
                           style={{
                             fontSize: '11px',
                             display: 'inline-flex',
@@ -3209,7 +3209,7 @@ function App() {
                         padding: '0 4px',
                         display: 'inline-flex'
                       }}
-                      title="Eliminar"
+                      title="Eliminar notificación"
                       aria-label="Eliminar notificación"
                     >
                       ❌
@@ -3806,7 +3806,7 @@ function App() {
                       className="iconButton"
                       onClick={() => setCorrectedDraft("")}
                       style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}
-                      title="Descartar"
+                      title="Descartar versión sugerida"
                       aria-label="Descartar versión sugerida"
                     >
                       ✕
@@ -3928,7 +3928,7 @@ function App() {
                       transition: 'all 0.2s ease',
                       transform: draft.trim() ? 'scale(1.15)' : 'none'
                     }}
-                    title="Mejorar redacción con IA (Ver sugerencia)"
+                    title="Mejorar redacción con IA"
                     aria-label="Mejorar redacción con IA"
                   >
                     ✨
@@ -3960,8 +3960,8 @@ function App() {
                     transition: 'all 0.25s ease',
                     flexShrink: 0
                   }}
-                  title="Enviar original"
-                  aria-label="Enviar original"
+                  title="Enviar mensaje original"
+                  aria-label="Enviar mensaje original"
                 >
                   <SendIcon size={20} />
                 </button>
@@ -3995,7 +3995,7 @@ function App() {
           >
             <div className="modalHeader">
               <h3 id="resourcesModalHeading">Recursos de {selectedChat?.name || selectedChatId}</h3>
-              <button className="secondary" onClick={() => setShowResources(false)} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CloseIcon size={16} /> Cerrar</button>
+              <button className="secondary" aria-label="Cerrar modal de recursos" onClick={() => setShowResources(false)} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CloseIcon size={16} /> Cerrar</button>
             </div>
 
             {loadingResources ? <p className="helper">Cargando recursos...</p> : (
@@ -4070,7 +4070,7 @@ function App() {
               <h3 id="profileSettingsModalHeading" style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserIcon size={20} /> Mi Perfil y Ajustes
               </h3>
-              <button className="secondary" onClick={() => setShowProfileMenu(false)} style={{ borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button className="secondary" aria-label="Cerrar menú de perfil" onClick={() => setShowProfileMenu(false)} style={{ borderRadius: '8px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <CloseIcon size={14} /> Cerrar
               </button>
             </div>
@@ -4150,6 +4150,7 @@ function App() {
                     {(userAvatarUrlInput || currentUser?.avatarUrl) && (
                       <button
                         type="button"
+                        aria-label="Eliminar foto de perfil"
                         onClick={() => setUserAvatarUrlInput("")}
                         style={{
                           padding: '8px 12px',
@@ -4669,7 +4670,7 @@ function App() {
           >
             <div className="modalHeader" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '15px', marginBottom: '15px' }}>
               <h3 id="newChatModalHeading" style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>Nuevo Mensaje</h3>
-              <button className="secondary" onClick={() => setShowNewChatModal(false)} style={{ borderRadius: '8px', padding: '6px 12px' }}>Cerrar</button>
+              <button className="secondary" aria-label="Cerrar modal de nuevo chat" onClick={() => setShowNewChatModal(false)} style={{ borderRadius: '8px', padding: '6px 12px' }}>Cerrar</button>
             </div>
 
             <div>
@@ -5051,7 +5052,7 @@ function App() {
           >
             <div className="modalHeader" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
               <h3 id="newStatusModalHeading" style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#fff' }}>⭕ Publicar Nuevo Estado</h3>
-              <button className="secondary" onClick={() => setShowNewStatusModal(false)} style={{ borderRadius: '8px', padding: '6px 12px' }}>Cerrar</button>
+              <button className="secondary" aria-label="Cerrar modal de nuevo estado" onClick={() => setShowNewStatusModal(false)} style={{ borderRadius: '8px', padding: '6px 12px' }}>Cerrar</button>
             </div>
 
             <div>
