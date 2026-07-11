@@ -3230,6 +3230,8 @@ function App() {
         }}>
           <button
             type="button"
+            aria-label="Ver estados"
+            title="Ver estados"
             onClick={() => {
               setViewMode("statuses");
               setSelectedChatId("");
@@ -3257,6 +3259,8 @@ function App() {
           
           <button
             type="button"
+            aria-label="Ver chats"
+            title="Ver chats"
             onClick={() => setViewMode("chats")}
             style={{
               flex: 1,
@@ -3280,6 +3284,8 @@ function App() {
 
           <button
             type="button"
+            aria-label="Ver usuarios cercanos"
+            title="Ver usuarios cercanos"
             onClick={() => {
               setViewMode("discover");
               setSelectedChatId("");
@@ -3307,6 +3313,8 @@ function App() {
 
           <button
             type="button"
+            aria-label="Ver muro público"
+            title="Ver muro público"
             onClick={() => {
               setViewMode("muro");
               setSelectedChatId("");
@@ -3334,6 +3342,8 @@ function App() {
           
           <button
             type="button"
+            aria-label="Ver alertas y notificaciones"
+            title="Ver alertas y notificaciones"
             onClick={() => {
               setViewMode("notifications");
               setSelectedChatId("");
