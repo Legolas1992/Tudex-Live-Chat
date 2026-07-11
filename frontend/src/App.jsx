@@ -3817,6 +3817,7 @@ function App() {
                   <div className="correctedActions" style={{ display: 'flex', gap: '8px' }}>
                     <button
                       className="primary sendCorrectedBtn"
+                      aria-label="Enviar versión IA sugerida"
                       onClick={() => sendMessage(correctedDraft, "corrected")}
                       style={{ flex: 1, padding: '8px 12px', borderRadius: '10px', fontWeight: '600' }}
                     >
@@ -3824,6 +3825,7 @@ function App() {
                     </button>
                     <button
                       className="secondary useCorrectedBtn"
+                      aria-label="Usar y editar versión IA sugerida"
                       onClick={() => {
                         setDraft(correctedDraft);
                         setCorrectedDraft("");
@@ -4969,6 +4971,7 @@ function App() {
               }}>
                 <button
                   disabled={activeStoryIndex === 0}
+                  aria-label="Historia anterior"
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveStoryIndex(activeStoryIndex - 1);
@@ -5012,6 +5015,7 @@ function App() {
                 </button>
 
                 <button
+                  aria-label={activeStoryIndex === storyPlayList.length - 1 ? 'Cerrar historia' : 'Siguiente historia'}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (activeStoryIndex < storyPlayList.length - 1) {
