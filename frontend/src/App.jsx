@@ -716,159 +716,19 @@ function App() {
         let pubKeyBase64 = pubKeyEntry?.value;
         let privKeyBase64 = privKeyEntry?.value;
 
-        // Try to get password from temporary window storage
-        const tempPass = window.tempLoginPassword;
-
-        async function handleNewKeyPair() {
-          console.log("[E2EE] Generating new keypair...");
-          const pair = await generateE2eeKeypair();
-          pubKeyBase64 = await exportPublicKey(pair.publicKey);
-          privKeyBase64 = await exportPrivateKey(pair.privateKey);
-
-          await writeEntry(`e2ee:${userId}:publicKey`, pubKeyBase64);
-          await writeEntry(`e2ee:${userId}:privateKey`, privKeyBase64);
-          privateKeyRef.current = pair.privateKey;
-
-          // If password is available, encrypt and sync with server
-          let encryptedPrivKey = null;
-          if (tempPass) {
-            try {
-              encryptedPrivKey = await encryptPrivateKeyWithPassword(privKeyBase64, tempPass);
-            } catch (err) {
-              console.error("[E2EE] Could not encrypt new private key:", err);
-            }
-          }
-
-          // Sync public key (and encrypted private key if available)
-          console.log("[E2EE] Syncing public/private key with backend...");
-          const res = await fetch(`${API_URL}/api/auth/profile`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${localStorage.getItem("tapchat_token")}`
-            },
-            body: JSON.stringify({ 
-              publicKey: pubKeyBase64,
-              ...(encryptedPrivKey ? { encryptedPrivateKey: encryptedPrivKey } : {})
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.user) {
-              setCurrentUser(data.user);
-              localStorage.setItem("tapchat_cached_user", JSON.stringify(data.user));
-            }
-          }
-        }
-
-        // If local keys exist, import and use them
+        // If local keys exist, import them so we can passively decrypt historical E2EE messages
         if (pubKeyBase64 && privKeyBase64) {
-          privateKeyRef.current = await importPrivateKey(privKeyBase64);
-          
-          // Legacy check: If user has a local private key but NO encryptedPrivateKey on the server,
-          // and we have the tempPass, encrypt and sync it to the server.
-          if (!currentUser.encryptedPrivateKey && tempPass) {
-            console.log("[E2EE] Uploading encrypted private key to server (legacy migration)...");
-            try {
-              const encryptedPrivKey = await encryptPrivateKeyWithPassword(privKeyBase64, tempPass);
-              await fetch(`${API_URL}/api/auth/profile`, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${localStorage.getItem("tapchat_token")}`
-                },
-                body: JSON.stringify({ encryptedPrivateKey: encryptedPrivKey })
-              });
-              setCurrentUser(prev => {
-                const updated = { ...prev, encryptedPrivateKey: encryptedPrivKey };
-                localStorage.setItem("tapchat_cached_user", JSON.stringify(updated));
-                return updated;
-              });
-            } catch (err) {
-              console.error("[E2EE] Failed to upload legacy private key:", err);
-            }
+          try {
+            privateKeyRef.current = await importPrivateKey(privKeyBase64);
+            console.log("[E2EE] Local private key loaded for passive legacy decryption.");
+          } catch (importErr) {
+            console.warn("[E2EE] Could not import local private key:", importErr);
           }
         } else {
-          // Local keys NOT found.
-          // Check if server has the encrypted private key
-          if (currentUser.encryptedPrivateKey) {
-            // We need a password to decrypt it
-            if (tempPass) {
-              console.log("[E2EE] Found encrypted private key on server. Decrypting...");
-              try {
-                privKeyBase64 = await decryptPrivateKeyWithPassword(currentUser.encryptedPrivateKey, tempPass);
-                pubKeyBase64 = currentUser.publicKey;
-
-                const privKey = await importPrivateKey(privKeyBase64);
-                
-                await writeEntry(`e2ee:${userId}:publicKey`, pubKeyBase64);
-                await writeEntry(`e2ee:${userId}:privateKey`, privKeyBase64);
-                privateKeyRef.current = privKey;
-                console.log("[E2EE] Successfully synced E2EE keys from server using password.");
-              } catch (decErr) {
-                console.error("[E2EE] Failed to decrypt private key with temporary password:", decErr);
-                await handleNewKeyPair();
-              }
-            } else {
-              console.log("[E2EE] Private key is encrypted on server but no password available. Prompting user...");
-              const recoveryPassword = window.prompt("Se requiere tu contraseña de Tapchat para descifrar y restaurar tus mensajes cifrados en este dispositivo:");
-              if (recoveryPassword) {
-                try {
-                  privKeyBase64 = await decryptPrivateKeyWithPassword(currentUser.encryptedPrivateKey, recoveryPassword);
-                  pubKeyBase64 = currentUser.publicKey;
-                  const privKey = await importPrivateKey(privKeyBase64);
-                  await writeEntry(`e2ee:${userId}:publicKey`, pubKeyBase64);
-                  await writeEntry(`e2ee:${userId}:privateKey`, privKeyBase64);
-                  privateKeyRef.current = privKey;
-                  window.tempLoginPassword = recoveryPassword;
-                  console.log("[E2EE] Successfully restored keys via user prompt.");
-                } catch (decErr) {
-                  alert("Contraseña incorrecta. No se pudieron restaurar los mensajes cifrados.");
-                  await handleNewKeyPair();
-                }
-              } else {
-                await handleNewKeyPair();
-              }
-            }
-          } else {
-            // Server has no encrypted private key. Generate new.
-            await handleNewKeyPair();
-          }
-        }
-
-        // Keep standard public key sync check in case public key exists but is not on server
-        if (!currentUser.publicKey || currentUser.publicKey !== pubKeyBase64) {
-          console.log("[E2EE] Syncing public key with backend...");
-          let encryptedPrivKey = null;
-          if (tempPass && privKeyBase64) {
-            try {
-              encryptedPrivKey = await encryptPrivateKeyWithPassword(privKeyBase64, tempPass);
-            } catch (err) {
-              console.error("[E2EE] Could not encrypt private key:", err);
-            }
-          }
-          const res = await fetch(`${API_URL}/api/auth/profile`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${localStorage.getItem("tapchat_token")}`
-            },
-            body: JSON.stringify({ 
-              publicKey: pubKeyBase64,
-              ...(encryptedPrivKey ? { encryptedPrivateKey: encryptedPrivKey } : {})
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.user) {
-              setCurrentUser(data.user);
-              localStorage.setItem("tapchat_cached_user", JSON.stringify(data.user));
-            }
-          }
+          console.log("[E2EE] No local keys found. Running in plaintext mode for new messages.");
         }
 
         setE2eeReady(true);
-        console.log("[E2EE] Cryptographic engine initialized successfully.");
       } catch (err) {
         console.error("[E2EE] Key initialization error:", err);
       }
@@ -2800,6 +2660,9 @@ function App() {
     const accountId = currentUser?.id || DEFAULT_ACCOUNT_ID;
 
     let finalBody = text;
+    // E2EE Cifrado desactivado para evitar errores de llave no coincidente en múltiples dispositivos.
+    // Todos los mensajes nuevos se envían en texto plano directamente.
+    /*
     if (activeChatPublicKeyRef.current) {
       try {
         console.log("[E2EE] Encrypting message before posting...");
@@ -2808,6 +2671,7 @@ function App() {
         console.error("[E2EE] Encryption failed, fallback to plain text:", err);
       }
     }
+    */
 
     try {
       const res = await fetch(`${API_URL}/api/send`, {
